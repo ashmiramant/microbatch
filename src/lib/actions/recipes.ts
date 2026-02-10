@@ -42,6 +42,7 @@ type CreateRecipeInput = {
   sourceType?: "ld_json" | "manual_paste" | "manual_entry" | null;
   description?: string | null;
   imageUrl?: string | null;
+  price?: string | null;
   yieldQuantity?: string | null;
   yieldUnit?: string | null;
   yieldWeightGrams?: string | null;
@@ -50,6 +51,7 @@ type CreateRecipeInput = {
   totalTimeMinutes?: number | null;
   category?: string | null;
   isSourdough?: boolean | null;
+  availableForOrder?: boolean | null;
   defaultPanId?: number | null;
   notes?: string | null;
   rawLdJson?: unknown;
@@ -164,6 +166,7 @@ export async function updateRecipe(id: number, data: UpdateRecipeInput) {
       if (recipeFields.sourceType !== undefined) updateValues.sourceType = recipeFields.sourceType;
       if (recipeFields.description !== undefined) updateValues.description = recipeFields.description;
       if (recipeFields.imageUrl !== undefined) updateValues.imageUrl = recipeFields.imageUrl;
+      if (recipeFields.price !== undefined) updateValues.price = recipeFields.price;
       if (recipeFields.yieldQuantity !== undefined) updateValues.yieldQuantity = recipeFields.yieldQuantity;
       if (recipeFields.yieldUnit !== undefined) updateValues.yieldUnit = recipeFields.yieldUnit;
       if (recipeFields.yieldWeightGrams !== undefined) updateValues.yieldWeightGrams = recipeFields.yieldWeightGrams;
@@ -172,6 +175,7 @@ export async function updateRecipe(id: number, data: UpdateRecipeInput) {
       if (recipeFields.totalTimeMinutes !== undefined) updateValues.totalTimeMinutes = recipeFields.totalTimeMinutes;
       if (recipeFields.category !== undefined) updateValues.category = recipeFields.category;
       if (recipeFields.isSourdough !== undefined) updateValues.isSourdough = recipeFields.isSourdough;
+      if (recipeFields.availableForOrder !== undefined) updateValues.availableForOrder = recipeFields.availableForOrder;
       if (recipeFields.defaultPanId !== undefined) updateValues.defaultPanId = recipeFields.defaultPanId;
       if (recipeFields.notes !== undefined) updateValues.notes = recipeFields.notes;
       if (recipeFields.rawLdJson !== undefined) updateValues.rawLdJson = recipeFields.rawLdJson;
