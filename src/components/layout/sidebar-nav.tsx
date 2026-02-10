@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   ChefHat,
@@ -12,6 +12,8 @@ import {
   Settings,
   Menu,
   X,
+  ClipboardList,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +21,7 @@ const navItems = [
   { label: "Home", href: "/", icon: LayoutDashboard },
   { label: "Recipes", href: "/recipes", icon: ChefHat },
   { label: "Orders", href: "/orders", icon: ShoppingCart },
+  { label: "Order Form", href: "/order-form", icon: ClipboardList },
   { label: "Production", href: "/production", icon: Factory },
   { label: "Pantry", href: "/pantry", icon: Warehouse },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -26,11 +29,18 @@ const navItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
   };
 
   return (
@@ -93,6 +103,16 @@ export function SidebarNav() {
             );
           })}
         </nav>
+
+        <div className="border-t border-border px-3 pt-3">
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm text-text-secondary transition hover:bg-background hover:text-text-primary"
+          >
+            <LogOut className="h-5 w-5" />
+            Sign Out
+          </button>
+        </div>
       </aside>
 
       {/* Spacer to push main content on mobile since sidebar is fixed */}

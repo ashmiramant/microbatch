@@ -288,6 +288,20 @@ export async function getRecipes() {
   }
 }
 
+export async function getAvailableRecipes() {
+  try {
+    const availableRecipes = await db.query.recipes.findMany({
+      where: eq(recipes.availableForOrder, true),
+      orderBy: [asc(recipes.name)],
+    });
+
+    return { success: true, data: availableRecipes };
+  } catch (error) {
+    console.error("Failed to get available recipes:", error);
+    return { success: false, error: "Failed to get available recipes" };
+  }
+}
+
 export async function getRecipeBySlug(slug: string) {
   try {
     const recipe = await db.query.recipes.findFirst({

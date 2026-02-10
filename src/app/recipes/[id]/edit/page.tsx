@@ -73,6 +73,8 @@ export default function EditRecipePage({
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string>("");
   const [isSourdough, setIsSourdough] = useState(false);
+  const [availableForOrder, setAvailableForOrder] = useState(false);
+  const [price, setPrice] = useState("");
   const [yieldQuantity, setYieldQuantity] = useState("");
   const [yieldUnit, setYieldUnit] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -104,6 +106,8 @@ export default function EditRecipePage({
       setDescription(r.description || "");
       setCategory(r.category || "");
       setIsSourdough(r.isSourdough || false);
+      setAvailableForOrder(r.availableForOrder || false);
+      setPrice(r.price || "");
       setYieldQuantity(r.yieldQuantity || "");
       setYieldUnit(r.yieldUnit || "");
       setImageUrl(r.imageUrl || "");
@@ -197,6 +201,8 @@ export default function EditRecipePage({
         description: description.trim() || null,
         category: category || null,
         isSourdough: isSourdough || null,
+        availableForOrder: availableForOrder || null,
+        price: price.trim() || null,
         yieldQuantity: yieldQuantity.trim() || null,
         yieldUnit: yieldUnit.trim() || null,
         imageUrl: imageUrl.trim() || null,
@@ -289,7 +295,7 @@ export default function EditRecipePage({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
               <Select value={category} onValueChange={setCategory}>
@@ -304,6 +310,19 @@ export default function EditRecipePage({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="price">Price ($)</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="11.00"
+              />
             </div>
 
             <div className="space-y-2">
@@ -351,6 +370,19 @@ export default function EditRecipePage({
                 </Label>
               </div>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface p-4">
+            <Checkbox
+              id="available-for-order"
+              checked={availableForOrder}
+              onCheckedChange={(checked) =>
+                setAvailableForOrder(checked === true)
+              }
+            />
+            <Label htmlFor="available-for-order" className="cursor-pointer">
+              Available for customer orders
+            </Label>
           </div>
         </section>
 

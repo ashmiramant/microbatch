@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/date";
+import { requireAuth } from "@/lib/auth";
 
 const statusConfig: Record<
   string,
@@ -25,6 +26,7 @@ const statusConfig: Record<
 };
 
 export default async function OrdersPage() {
+  await requireAuth();
   const result = await getOrders();
   const orders = result.success ? result.data ?? [] : [];
 

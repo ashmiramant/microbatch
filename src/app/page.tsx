@@ -19,8 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { getRecipes } from "@/lib/actions/recipes";
 import { getOrders } from "@/lib/actions/orders";
 import { getProductionRuns } from "@/lib/actions/production";
+import { requireAuth } from "@/lib/auth";
 
 export default async function DashboardPage() {
+  await requireAuth();
   const [recipesResult, ordersResult, runsResult] = await Promise.all([
     getRecipes().catch(() => ({ success: false as const, data: [] })),
     getOrders().catch(() => ({ success: false as const, data: [] })),

@@ -4,8 +4,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { getRecipes } from "@/lib/actions/recipes";
 import { RecipeListFilters } from "@/components/recipes/recipe-list-filters";
+import { requireAuth } from "@/lib/auth";
 
 export default async function RecipesPage() {
+  await requireAuth();
   const result = await getRecipes();
   const recipes = result.success && result.data ? result.data : [];
 

@@ -1,0 +1,68 @@
+# Project: MicroBatch - Micro-bakery Production Management
+
+## Communication Style
+- The user is not a coder - always explain changes in simple, everyday English
+- Avoid technical jargon when possible
+- When technical terms are necessary, explain them simply
+- Always explain WHAT you changed and WHY you changed it
+- Break down complex changes into simple bullet points
+
+## Styling Rules
+- **ALWAYS use Tailwind CSS for ALL styling** - never use regular CSS files or inline styles
+- This project uses Tailwind CSS v4
+- Use the existing design system colors: `bg-background`, `bg-surface`, `text-text-primary`, `text-text-secondary`, `text-accent`, `border-border`
+- Follow the existing component patterns in `src/components/ui/` for consistency
+- The project uses Radix UI components with Tailwind styling
+
+## Navigation Menu Rules
+- **CRITICAL: When adding ANY new feature or main page, you MUST automatically add it to the navigation menu**
+- The navigation menu is located in: `src/components/layout/sidebar-nav.tsx`
+- The menu items are defined in the `navItems` array (around line 18-25)
+- Each navigation item needs:
+  - `label`: The display name (e.g., "Recipes")
+  - `href`: The URL path (e.g., "/recipes")
+  - `icon`: An icon from lucide-react (import it at the top of the file)
+- Example of adding a new menu item:
+  ```typescript
+  { label: "New Feature", href: "/new-feature", icon: IconName }
+  ```
+- Always pick an appropriate icon that represents the feature
+- Add new items in a logical order (before Settings, which should stay last)
+
+## Project Structure
+- This is a Next.js 16 app with TypeScript
+- Pages go in: `src/app/[feature-name]/page.tsx`
+- Reusable components go in: `src/components/[feature-name]/`
+- UI components (buttons, cards, etc.) go in: `src/components/ui/`
+- Database schema is in: `src/lib/db/schema.ts` (uses Drizzle ORM)
+- The layout file is: `src/app/layout.tsx`
+
+## Current Features
+The app currently has these main sections:
+- Home (dashboard/overview)
+- Recipes (managing bakery recipes)
+- Orders (customer orders)
+- Production (batch production runs)
+- Pantry (ingredients, pans, packaging inventory)
+- Settings (app configuration)
+
+## Code Quality
+- Use TypeScript for all new files
+- Use "use client" directive for components that need interactivity (buttons, forms, etc.)
+- Follow the existing patterns in the codebase
+- Keep code simple and well-organized
+- Use meaningful variable and function names
+
+## When Creating New Features
+1. Create the page file in the appropriate `src/app/` folder
+2. **Immediately add the feature to the navigation menu** in `sidebar-nav.tsx`
+3. Use Tailwind CSS for all styling
+4. Follow the existing component structure
+5. Explain to the user in simple terms what you created and where to find it
+
+## Summary for AI
+Every time you make changes:
+1. Use Tailwind CSS (never regular CSS)
+2. Explain changes in plain English
+3. If you add a new main feature/page, automatically update the navigation menu
+4. Tell the user exactly what you did and where the files are located
