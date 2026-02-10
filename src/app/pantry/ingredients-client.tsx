@@ -217,91 +217,89 @@ export function IngredientsClient({
 
   // ─── Shared Form ─────────────────────────────────────────────────────────
 
-  function IngredientForm() {
-    return (
-      <div className="grid gap-4 py-4">
-        <div className="grid gap-2">
-          <Label htmlFor="name">Name</Label>
-          <Input
-            id="name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. All-Purpose Flour"
-          />
-        </div>
+  const ingredientForm = (
+    <div className="grid gap-4 py-4">
+      <div className="grid gap-2">
+        <Label htmlFor="name">Name</Label>
+        <Input
+          id="name"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="e.g. All-Purpose Flour"
+        />
+      </div>
 
+      <div className="grid gap-2">
+        <Label htmlFor="category">Category</Label>
+        <Select
+          value={form.category}
+          onValueChange={(val) =>
+            setForm({ ...form, category: val as IngredientCategory })
+          }
+        >
+          <SelectTrigger id="category">
+            <SelectValue placeholder="Select a category" />
+          </SelectTrigger>
+          <SelectContent>
+            {CATEGORIES.filter((c) => c.value !== "all").map((c) => (
+              <SelectItem key={c.value} value={c.value}>
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="category">Category</Label>
-          <Select
-            value={form.category}
-            onValueChange={(val) =>
-              setForm({ ...form, category: val as IngredientCategory })
+          <Label htmlFor="defaultUnit">Default Unit</Label>
+          <Input
+            id="defaultUnit"
+            value={form.defaultUnit}
+            onChange={(e) =>
+              setForm({ ...form, defaultUnit: e.target.value })
             }
-          >
-            <SelectTrigger id="category">
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.filter((c) => c.value !== "all").map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="defaultUnit">Default Unit</Label>
-            <Input
-              id="defaultUnit"
-              value={form.defaultUnit}
-              onChange={(e) =>
-                setForm({ ...form, defaultUnit: e.target.value })
-              }
-              placeholder="g"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="density">Density (g/mL)</Label>
-            <Input
-              id="density"
-              type="number"
-              step="0.01"
-              value={form.densityGPerMl}
-              onChange={(e) =>
-                setForm({ ...form, densityGPerMl: e.target.value })
-              }
-              placeholder="e.g. 0.53"
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="cost">Cost per Gram ($)</Label>
-          <Input
-            id="cost"
-            type="number"
-            step="0.001"
-            value={form.costPerGram}
-            onChange={(e) => setForm({ ...form, costPerGram: e.target.value })}
-            placeholder="e.g. 0.003"
+            placeholder="g"
           />
         </div>
-
         <div className="grid gap-2">
-          <Label htmlFor="aliases">Aliases (comma-separated)</Label>
+          <Label htmlFor="density">Density (g/mL)</Label>
           <Input
-            id="aliases"
-            value={form.aliases}
-            onChange={(e) => setForm({ ...form, aliases: e.target.value })}
-            placeholder="e.g. AP flour, plain flour"
+            id="density"
+            type="number"
+            step="0.01"
+            value={form.densityGPerMl}
+            onChange={(e) =>
+              setForm({ ...form, densityGPerMl: e.target.value })
+            }
+            placeholder="e.g. 0.53"
           />
         </div>
       </div>
-    );
-  }
+
+      <div className="grid gap-2">
+        <Label htmlFor="cost">Cost per Gram ($)</Label>
+        <Input
+          id="cost"
+          type="number"
+          step="0.001"
+          value={form.costPerGram}
+          onChange={(e) => setForm({ ...form, costPerGram: e.target.value })}
+          placeholder="e.g. 0.003"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="aliases">Aliases (comma-separated)</Label>
+        <Input
+          id="aliases"
+          value={form.aliases}
+          onChange={(e) => setForm({ ...form, aliases: e.target.value })}
+          placeholder="e.g. AP flour, plain flour"
+        />
+      </div>
+    </div>
+  );
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -431,7 +429,7 @@ export function IngredientsClient({
               Add a new ingredient to your pantry library.
             </DialogDescription>
           </DialogHeader>
-          <IngredientForm />
+          {ingredientForm}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               Cancel
@@ -452,7 +450,7 @@ export function IngredientsClient({
               Update the details for this ingredient.
             </DialogDescription>
           </DialogHeader>
-          <IngredientForm />
+          {ingredientForm}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
