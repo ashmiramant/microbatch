@@ -239,18 +239,17 @@ export function PansClient({ pans }: { pans: Pan[] }) {
 
   // ─── Shared Form ─────────────────────────────────────────────────────────
 
-  function PanForm() {
-    const showRectangular = form.shape === "rectangular";
-    const showRound = form.shape === "round";
-    const showSquare = form.shape === "square";
-    const showDirectVolume =
-      form.shape === "bundt" || form.shape === "custom";
-    const showHeight =
-      form.shape === "rectangular" ||
-      form.shape === "round" ||
-      form.shape === "square";
+  const showRectangular = form.shape === "rectangular";
+  const showRound = form.shape === "round";
+  const showSquare = form.shape === "square";
+  const showDirectVolume =
+    form.shape === "bundt" || form.shape === "custom";
+  const showHeight =
+    form.shape === "rectangular" ||
+    form.shape === "round" ||
+    form.shape === "square";
 
-    return (
+  const panForm = (
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
           <Label htmlFor="pan-name">Name</Label>
@@ -447,7 +446,6 @@ export function PansClient({ pans }: { pans: Pan[] }) {
         </div>
       </div>
     );
-  }
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -549,7 +547,7 @@ export function PansClient({ pans }: { pans: Pan[] }) {
               Add a baking pan with its dimensions for recipe scaling.
             </DialogDescription>
           </DialogHeader>
-          <PanForm />
+          {panForm}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               Cancel
@@ -573,7 +571,7 @@ export function PansClient({ pans }: { pans: Pan[] }) {
               Update the details for this pan.
             </DialogDescription>
           </DialogHeader>
-          <PanForm />
+          {panForm}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
