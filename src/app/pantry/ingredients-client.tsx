@@ -55,6 +55,7 @@ type Ingredient = {
   id: number;
   name: string;
   aliases: unknown;
+  subingredients: unknown;
   category: IngredientCategory | null;
   defaultUnit: string | null;
   densityGPerMl: string | null;
@@ -101,6 +102,7 @@ type FormData = {
   densityGPerMl: string;
   costPerGram: string;
   aliases: string;
+  subingredients: string;
 };
 
 const emptyForm: FormData = {
@@ -110,6 +112,7 @@ const emptyForm: FormData = {
   densityGPerMl: "",
   costPerGram: "",
   aliases: "",
+  subingredients: "",
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -152,6 +155,7 @@ export function IngredientsClient({
   function openEdit(ing: Ingredient) {
     setSelectedIngredient(ing);
     const aliasArray = Array.isArray(ing.aliases) ? ing.aliases : [];
+    const subingredientArray = Array.isArray(ing.subingredients) ? ing.subingredients : [];
     setForm({
       name: ing.name,
       category: (ing.category ?? "") as IngredientCategory | "",
@@ -159,6 +163,7 @@ export function IngredientsClient({
       densityGPerMl: ing.densityGPerMl ?? "",
       costPerGram: ing.costPerGram ?? "",
       aliases: aliasArray.join(", "),
+      subingredients: subingredientArray.join(", "),
     });
     setEditOpen(true);
   }
@@ -174,6 +179,10 @@ export function IngredientsClient({
         .split(",")
         .map((a) => a.trim())
         .filter(Boolean);
+      const subingredients = form.subingredients
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       await createIngredient({
         name: form.name,
         category: (form.category || null) as IngredientCategory | null,
@@ -181,6 +190,7 @@ export function IngredientsClient({
         densityGPerMl: form.densityGPerMl || null,
         costPerGram: form.costPerGram || null,
         aliases: aliases.length > 0 ? aliases : undefined,
+        subingredients: subingredients.length > 0 ? subingredients : undefined,
       });
       setAddOpen(false);
     });
@@ -193,6 +203,10 @@ export function IngredientsClient({
         .split(",")
         .map((a) => a.trim())
         .filter(Boolean);
+      const subingredients = form.subingredients
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       await updateIngredient(selectedIngredient.id, {
         name: form.name,
         category: (form.category || null) as IngredientCategory | null,
@@ -200,6 +214,7 @@ export function IngredientsClient({
         densityGPerMl: form.densityGPerMl || null,
         costPerGram: form.costPerGram || null,
         aliases: aliases.length > 0 ? aliases : undefined,
+        subingredients: subingredients.length > 0 ? subingredients : undefined,
       });
       setEditOpen(false);
       setSelectedIngredient(null);
@@ -296,6 +311,17 @@ export function IngredientsClient({
           value={form.aliases}
           onChange={(e) => setForm({ ...form, aliases: e.target.value })}
           placeholder="e.g. AP flour, plain flour"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="subingredients">Subingredients (comma-separated)</Label>
+        <Textarea
+          id="subingredients"
+          value={form.subingredients}
+          onChange={(e) => setForm({ ...form, subingredients: e.target.value })}
+          placeholder="e.g. Organic Hard Red Wheat flour, Organic Malted Barley Flour"
+          rows={3}
         />
       </div>
     </div>

@@ -137,6 +137,7 @@ export const ingredients = pgTable("ingredients", {
   id: serial("id").primaryKey(),
   name: text("name").unique().notNull(),
   aliases: jsonb("aliases"),
+  subingredients: jsonb("subingredients"),
   category: text("category", {
     enum: [
       "flour",

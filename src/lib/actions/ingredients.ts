@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 type CreateIngredientInput = {
   name: string;
   aliases?: unknown;
+  subingredients?: unknown;
   category?:
     | "flour"
     | "sugar_sweetener"
@@ -38,6 +39,7 @@ export async function createIngredient(data: CreateIngredientInput) {
       .values({
         name: data.name,
         aliases: data.aliases,
+        subingredients: data.subingredients,
         category: data.category,
         defaultUnit: data.defaultUnit,
         densityGPerMl: data.densityGPerMl,
@@ -61,6 +63,7 @@ export async function updateIngredient(
     const updateValues: Record<string, unknown> = { updatedAt: new Date() };
     if (data.name !== undefined) updateValues.name = data.name;
     if (data.aliases !== undefined) updateValues.aliases = data.aliases;
+    if (data.subingredients !== undefined) updateValues.subingredients = data.subingredients;
     if (data.category !== undefined) updateValues.category = data.category;
     if (data.defaultUnit !== undefined) updateValues.defaultUnit = data.defaultUnit;
     if (data.densityGPerMl !== undefined) updateValues.densityGPerMl = data.densityGPerMl;
