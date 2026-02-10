@@ -205,107 +205,163 @@ export function PackagingClient({
     return stock <= threshold;
   }
 
+  // ─── URL Scraping ────────────────────────────────────────────────────────
+
+  const [scraping, setScraping] = useState(false);
+  const [scrapeUrl, setScrapeUrl] = useState("");
+
+  async function handleScrapeUrl() {
+    if (!scrapeUrl.trim()) return;
+    
+    setScraping(true);
+    try {
+      const response = await fetch("/api/scrape-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: scrapeUrl }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.product) {
+        const product = data.product;
+        setForm({
+          ...form,
+          name: product.name || form.name,
+          costPerUnit: product.price || form.costPerUnit,
+          supplierUrl: scrapeUrl,
+        });
+        setScrapeUrl("");
+      } else {
+        alert(data.error || "Couldn't scrape product info from that URL");
+      }
+    } catch (error) {
+      alert("Failed to scrape URL. Please enter details manually.");
+    } finally {
+      setScraping(false);
+    }
+  }
+
   // ─── Shared Form ─────────────────────────────────────────────────────────
 
-  function PackagingForm() {
-    return (
-      <div className="grid gap-4 py-4">
-        <div className="grid gap-2">
-          <Label htmlFor="pkg-name">Name</Label>
+  const packagingForm = (
+    <div className="grid gap-4 py-4">
+      <div className="grid gap-2">
+        <Label htmlFor="scrape-url">Quick Import from URL (optional)</Label>
+        <div className="flex gap-2">
           <Input
-            id="pkg-name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. Kraft Paper Bag (small)"
+            id="scrape-url"
+            value={scrapeUrl}
+            onChange={(e) => setScrapeUrl(e.target.value)}
+            placeholder="Paste product URL (Amazon, supplier website, etc.)"
+            disabled={scraping}
           />
+          <Button
+            type="button"
+            onClick={handleScrapeUrl}
+            disabled={!scrapeUrl.trim() || scraping}
+            variant="outline"
+          >
+            {scraping ? "Scraping..." : "Import"}
+          </Button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="pkg-category">Category</Label>
-            <Select
-              value={form.category}
-              onValueChange={(val) =>
-                setForm({ ...form, category: val as PackagingCategory })
-              }
-            >
-              <SelectTrigger id="pkg-category">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {PACKAGING_CATEGORIES.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="pkg-cost">Cost per Unit ($)</Label>
-            <Input
-              id="pkg-cost"
-              type="number"
-              step="0.01"
-              value={form.costPerUnit}
-              onChange={(e) =>
-                setForm({ ...form, costPerUnit: e.target.value })
-              }
-              placeholder="e.g. 0.25"
-            />
-          </div>
-        </div>
+      <div className="grid gap-2">
+        <Label htmlFor="pkg-name">Name</Label>
+        <Input
+          id="pkg-name"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder="e.g. Kraft Paper Bag (small)"
+        />
+      </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="pkg-stock">Current Stock</Label>
-            <Input
-              id="pkg-stock"
-              type="number"
-              value={form.currentStock}
-              onChange={(e) =>
-                setForm({ ...form, currentStock: e.target.value })
-              }
-              placeholder="0"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="pkg-threshold">Reorder Threshold</Label>
-            <Input
-              id="pkg-threshold"
-              type="number"
-              value={form.reorderThreshold}
-              onChange={(e) =>
-                setForm({ ...form, reorderThreshold: e.target.value })
-              }
-              placeholder="0"
-            />
-          </div>
-        </div>
-
+      <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="pkg-supplier">Supplier URL</Label>
+          <Label htmlFor="pkg-category">Category</Label>
+          <Select
+            value={form.category}
+            onValueChange={(val) =>
+              setForm({ ...form, category: val as PackagingCategory })
+            }
+          >
+            <SelectTrigger id="pkg-category">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {PACKAGING_CATEGORIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="pkg-cost">Cost per Unit ($)</Label>
           <Input
-            id="pkg-supplier"
-            value={form.supplierUrl}
-            onChange={(e) => setForm({ ...form, supplierUrl: e.target.value })}
-            placeholder="https://..."
-          />
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="pkg-notes">Notes</Label>
-          <Textarea
-            id="pkg-notes"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            placeholder="Any additional notes..."
-            rows={3}
+            id="pkg-cost"
+            type="number"
+            step="0.01"
+            value={form.costPerUnit}
+            onChange={(e) =>
+              setForm({ ...form, costPerUnit: e.target.value })
+            }
+            placeholder="e.g. 0.25"
           />
         </div>
       </div>
-    );
-  }
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="pkg-stock">Current Stock</Label>
+          <Input
+            id="pkg-stock"
+            type="number"
+            value={form.currentStock}
+            onChange={(e) =>
+              setForm({ ...form, currentStock: e.target.value })
+            }
+            placeholder="0"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="pkg-threshold">Reorder Threshold</Label>
+          <Input
+            id="pkg-threshold"
+            type="number"
+            value={form.reorderThreshold}
+            onChange={(e) =>
+              setForm({ ...form, reorderThreshold: e.target.value })
+            }
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="pkg-supplier">Supplier URL</Label>
+        <Input
+          id="pkg-supplier"
+          value={form.supplierUrl}
+          onChange={(e) => setForm({ ...form, supplierUrl: e.target.value })}
+          placeholder="https://..."
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="pkg-notes">Notes</Label>
+        <Textarea
+          id="pkg-notes"
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          placeholder="Any additional notes..."
+          rows={3}
+        />
+      </div>
+    </div>
+  );
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -441,7 +497,7 @@ export function PackagingClient({
               Add a new packaging supply to track inventory.
             </DialogDescription>
           </DialogHeader>
-          <PackagingForm />
+          {packagingForm}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               Cancel
@@ -465,7 +521,7 @@ export function PackagingClient({
               Update the details for this packaging supply.
             </DialogDescription>
           </DialogHeader>
-          <PackagingForm />
+          {packagingForm}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
