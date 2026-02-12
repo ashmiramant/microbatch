@@ -3,32 +3,21 @@ import { getOrders } from "@/lib/actions/orders";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatDateTime } from "@/lib/utils/date";
 import { requireAuth } from "@/lib/auth";
-
-const statusConfig: Record<
-  string,
-  { label: string; variant: "default" | "secondary" | "success" | "warning" | "destructive" }
-> = {
-  draft: { label: "Draft", variant: "secondary" },
-  confirmed: { label: "Confirmed", variant: "default" },
-  in_production: { label: "In Production", variant: "warning" },
-  fulfilled: { label: "Fulfilled", variant: "success" },
-  cancelled: { label: "Cancelled", variant: "destructive" },
-};
+import { OrdersListClient } from "@/components/orders/orders-list-client";
 
 export default async function OrdersPage() {
   await requireAuth();
   const result = await getOrders();
   const orders = result.success ? result.data ?? [] : [];
+  const itemTotals = orders.reduce<Record<string, number>>((acc, order) => {
+    for (const item of order.items ?? []) {
+      const recipeName = item.recipe?.name ?? `Recipe #${item.recipeId}`;
+      acc[recipeName] = (acc[recipeName] ?? 0) + item.quantity;
+    }
+    return acc;
+  }, {});
+  const itemTotalsList = Object.entries(itemTotals).sort((a, b) => b[1] - a[1]);
 
   return (
     <div>
@@ -56,46 +45,24 @@ export default async function OrdersPage() {
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border border-border bg-surface">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order Name</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.map((order) => {
-                const status = statusConfig[order.status ?? "draft"];
-                return (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <Link
-                        href={`/orders/${order.id}`}
-                        className="font-serif font-semibold text-text-primary hover:text-accent transition-colors"
-                      >
-                        {order.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-text-secondary">
-                      {order.dueDate
-                        ? formatDateTime(order.dueDate)
-                        : "No due date"}
-                    </TableCell>
-                    <TableCell className="text-text-secondary">
-                      {order.items?.length ?? 0} recipe
-                      {(order.items?.length ?? 0) !== 1 ? "s" : ""}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <div className="space-y-6">
+          <div className="rounded-lg border border-border bg-surface p-5">
+            <h3 className="font-serif text-lg font-semibold text-text-primary">
+              Item Totals
+            </h3>
+            <p className="mt-1 text-sm text-text-secondary">
+              Running totals from orders received.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {itemTotalsList.map(([name, quantity]) => (
+                <Badge key={name} variant="secondary" className="px-3 py-1">
+                  {name}: {quantity}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <OrdersListClient orders={orders} />
         </div>
       )}
     </div>

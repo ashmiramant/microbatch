@@ -150,9 +150,13 @@ export async function getOrder(id: number) {
 export async function getOrders() {
   try {
     const allOrders = await db.query.orders.findMany({
-      orderBy: [desc(orders.dueDate)],
+      orderBy: [desc(orders.createdAt)],
       with: {
-        items: true,
+        items: {
+          with: {
+            recipe: true,
+          },
+        },
       },
     });
 

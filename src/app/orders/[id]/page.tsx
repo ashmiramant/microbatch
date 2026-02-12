@@ -157,17 +157,6 @@ export default async function OrderDetailPage({
             <CardContent className="space-y-4">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-text-secondary">
-                  Due Date
-                </p>
-                <p className="mt-1 text-sm text-text-primary">
-                  {order.dueDate ? formatDateTime(order.dueDate) : "Not set"}
-                </p>
-              </div>
-
-              <Separator />
-
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-text-secondary">
                   Created
                 </p>
                 <p className="mt-1 text-sm text-text-primary">
@@ -193,6 +182,9 @@ export default async function OrderDetailPage({
               <CardTitle>Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+              <Button variant="outline" className="w-full" asChild>
+                <Link href={`/orders/${order.id}/edit`}>Edit This Order</Link>
+              </Button>
               <Button variant="outline" className="w-full" asChild>
                 <Link href="/production">View Production Runs</Link>
               </Button>
