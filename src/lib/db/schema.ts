@@ -248,7 +248,14 @@ export const orders = pgTable("orders", {
   name: text("name").notNull(),
   dueDate: timestamp("due_date"),
   status: text("status", {
-    enum: ["draft", "confirmed", "in_production", "fulfilled", "cancelled"],
+    enum: [
+      "draft",
+      "confirmed",
+      "in_production",
+      "fulfilled",
+      "cancelled",
+      "archived",
+    ],
   }).default("draft"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),

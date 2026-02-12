@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { archiveOrder, unarchiveOrder } from "@/lib/actions/orders";
 import {
   Table,
   TableBody,
@@ -37,9 +39,12 @@ const statusConfig: Record<
   in_production: { label: "In Production", variant: "warning" },
   fulfilled: { label: "Fulfilled", variant: "success" },
   cancelled: { label: "Cancelled", variant: "destructive" },
+  archived: { label: "Archived", variant: "secondary" },
 };
 
 export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
 
   const allOrderIds = useMemo(() => orders.map((order) => order.id), [orders]);
@@ -60,10 +65,6 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
     });
   }
 
-  function handlePrintAll() {
-    window.open("/orders/print?all=1", "_blank", "noopener,noreferrer");
-  }
-
   function handlePrintSelected() {
     if (selectedOrderIds.length === 0) return;
     const ids = selectedOrderIds.join(",");
@@ -74,15 +75,48 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
     );
   }
 
+  function handleArchive(orderId: number) {
+    startTransition(async () => {
+      await archiveOrder(orderId);
+      router.refresh();
+    });
+  }
+
+  function handleUnarchive(orderId: number) {
+    startTransition(async () => {
+      await unarchiveOrder(orderId);
+      router.refresh();
+    });
+  }
+
+  function handleArchiveSelected() {
+    if (selectedOrderIds.length === 0) return;
+    startTransition(async () => {
+      const selectedOrders = orders.filter((order) =>
+        selectedOrderIds.includes(order.id)
+      );
+      const activeOrders = selectedOrders.filter(
+        (order) => order.status !== "archived"
+      );
+      await Promise.all(activeOrders.map((order) => archiveOrder(order.id)));
+      setSelectedOrderIds([]);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="rounded-lg border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
         <p className="text-sm text-text-secondary">
-          Select one or more orders to print on 4x6 sheets.
+          Select one or more orders to print or archive.
         </p>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handlePrintAll}>
-            Print All
+          <Button
+            variant="outline"
+            onClick={handleArchiveSelected}
+            disabled={selectedOrderIds.length === 0 || isPending}
+          >
+            Archive Selected ({selectedOrderIds.length})
           </Button>
           <Button
             onClick={handlePrintSelected}
@@ -158,9 +192,30 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
                   <Badge variant={status.variant}>{status.label}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/orders/${order.id}/edit`}>Edit</Link>
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/orders/${order.id}/edit`}>Edit</Link>
+                    </Button>
+                    {order.status === "archived" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUnarchive(order.id)}
+                        disabled={isPending}
+                      >
+                        Unarchive
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleArchive(order.id)}
+                        disabled={isPending}
+                      >
+                        Archive
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );

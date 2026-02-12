@@ -27,6 +27,7 @@ const statusConfig: Record<
   in_production: { label: "In Production", variant: "warning" },
   fulfilled: { label: "Fulfilled", variant: "success" },
   cancelled: { label: "Cancelled", variant: "destructive" },
+  archived: { label: "Archived", variant: "secondary" },
 };
 
 export default async function OrderDetailPage({

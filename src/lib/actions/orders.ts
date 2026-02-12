@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { orders, orderItems, recipes } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { sendOrderConfirmationEmail } from "@/lib/services/order-confirmation-email";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,14 @@ type OrderItemInput = {
 type CreateOrderInput = {
   name: string;
   dueDate?: Date | string | null;
-  status?: "draft" | "confirmed" | "in_production" | "fulfilled" | "cancelled" | null;
+  status?:
+    | "draft"
+    | "confirmed"
+    | "in_production"
+    | "fulfilled"
+    | "cancelled"
+    | "archived"
+    | null;
   notes?: string | null;
   items: OrderItemInput[];
 };
@@ -169,19 +177,95 @@ export async function getOrders() {
 
 export async function updateOrderStatus(
   id: number,
-  status: "draft" | "confirmed" | "in_production" | "fulfilled" | "cancelled"
+  status:
+    | "draft"
+    | "confirmed"
+    | "in_production"
+    | "fulfilled"
+    | "cancelled"
+    | "archived"
 ) {
   try {
+    const existingOrder = await db.query.orders.findFirst({
+      where: eq(orders.id, id),
+    });
+
     const [order] = await db
       .update(orders)
       .set({ status, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning();
 
+    const shouldSendConfirmation =
+      status === "confirmed" && existingOrder?.status === "draft";
+
+    if (shouldSendConfirmation) {
+      await sendConfirmationEmailForOrder(id);
+    }
+
     revalidatePath("/orders");
+    revalidatePath(`/orders/${id}`);
     return { success: true, data: order };
   } catch (error) {
     console.error("Failed to update order status:", error);
     return { success: false, error: "Failed to update order status" };
+  }
+}
+
+export async function archiveOrder(id: number) {
+  return updateOrderStatus(id, "archived");
+}
+
+export async function unarchiveOrder(id: number) {
+  return updateOrderStatus(id, "confirmed");
+}
+
+function extractCustomerDetails(notes: string | null) {
+  const source = notes ?? "";
+  const nameMatch = source.match(/^Customer:\s*(.+)$/im);
+  const emailMatch = source.match(/^Email:\s*(.+)$/im);
+  const notesMatch = source.match(/^Notes:\s*([\s\S]*)$/im);
+
+  return {
+    customerName: (nameMatch?.[1] ?? "").trim(),
+    customerEmail: (emailMatch?.[1] ?? "").trim(),
+    customerNotes: (notesMatch?.[1] ?? "").trim(),
+  };
+}
+
+async function sendConfirmationEmailForOrder(orderId: number) {
+  try {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: {
+        items: {
+          with: {
+            recipe: true,
+          },
+        },
+      },
+    });
+
+    if (!order) return;
+
+    const { customerName, customerEmail, customerNotes } = extractCustomerDetails(
+      order.notes
+    );
+
+    if (!customerEmail) return;
+
+    await sendOrderConfirmationEmail({
+      to: customerEmail,
+      customerName: customerName || "there",
+      orderName: order.name,
+      items: order.items.map((item) => ({
+        name: item.recipe?.name ?? `Item #${item.recipeId}`,
+        quantity: item.quantity,
+      })),
+      notes: customerNotes || null,
+    });
+  } catch (error) {
+    // Do not block status updates if email fails.
+    console.error("Failed to send order confirmation email:", error);
   }
 }
