@@ -87,7 +87,7 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
         </article>
       ))}
 
-      <style jsx global>{`
+      <style>{`
         @page {
           size: 4in 6in;
           margin: 0.18in;
