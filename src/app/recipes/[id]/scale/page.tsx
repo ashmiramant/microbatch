@@ -13,7 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getRecipe } from "@/lib/actions/recipes";
+import { getPans } from "@/lib/actions/pans";
 import {
   calculateScalingFactor,
   scaleIngredients,
@@ -35,6 +43,13 @@ type RecipeData = {
     quantity: string | null;
     unit: string | null;
   }>;
+  defaultPanId?: number | null;
+};
+
+type PanData = {
+  id: number;
+  name: string;
+  volumeMl: string | null;
 };
 
 export default function ScalePage({
@@ -46,6 +61,7 @@ export default function ScalePage({
   const recipeId = parseInt(id, 10);
 
   const [recipe, setRecipe] = useState<RecipeData | null>(null);
+  const [pans, setPans] = useState<PanData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,26 +69,80 @@ export default function ScalePage({
   const [mode, setMode] = useState<ScalingMode>("multiplier");
   const [multiplier, setMultiplier] = useState("1");
   const [targetQuantity, setTargetQuantity] = useState("");
+  const [originalPanId, setOriginalPanId] = useState("");
+  const [targetPanId, setTargetPanId] = useState("");
   const [showPercentage, setShowPercentage] = useState(false);
 
   useEffect(() => {
-    async function fetchRecipe() {
+    async function fetchRecipeAndPans() {
       setLoading(true);
       try {
-        const result = await getRecipe(recipeId);
-        if (result.success && result.data) {
-          setRecipe(result.data as unknown as RecipeData);
+        const [recipeResult, pansResult] = await Promise.all([
+          getRecipe(recipeId),
+          getPans(),
+        ]);
+
+        if (recipeResult.success && recipeResult.data) {
+          const recipeData = recipeResult.data as unknown as RecipeData;
+          setRecipe(recipeData);
+
+          if (pansResult.success && pansResult.data) {
+            const panList = pansResult.data as unknown as PanData[];
+            setPans(panList);
+
+            const recipeDefaultPanId = recipeData.defaultPanId
+              ? String(recipeData.defaultPanId)
+              : "";
+
+            if (
+              recipeDefaultPanId &&
+              panList.some((pan) => String(pan.id) === recipeDefaultPanId)
+            ) {
+              setOriginalPanId(recipeDefaultPanId);
+              const firstDifferentPan = panList.find(
+                (pan) => String(pan.id) !== recipeDefaultPanId
+              );
+              if (firstDifferentPan) {
+                setTargetPanId(String(firstDifferentPan.id));
+              }
+            }
+          }
         } else {
           setError("Recipe not found.");
         }
       } catch {
-        setError("Failed to load recipe.");
+        setError("Failed to load recipe or pans.");
       } finally {
         setLoading(false);
       }
     }
-    fetchRecipe();
+    fetchRecipeAndPans();
   }, [recipeId]);
+
+  const pansWithVolume = useMemo(
+    () =>
+      pans.filter((pan) => {
+        const volume = pan.volumeMl ? parseFloat(pan.volumeMl) : 0;
+        return volume > 0;
+      }),
+    [pans]
+  );
+
+  const originalPanVolume = useMemo(() => {
+    const selectedPan = pansWithVolume.find((pan) => String(pan.id) === originalPanId);
+    return selectedPan?.volumeMl ? parseFloat(selectedPan.volumeMl) : 0;
+  }, [pansWithVolume, originalPanId]);
+
+  const targetPanVolume = useMemo(() => {
+    const selectedPan = pansWithVolume.find((pan) => String(pan.id) === targetPanId);
+    return selectedPan?.volumeMl ? parseFloat(selectedPan.volumeMl) : 0;
+  }, [pansWithVolume, targetPanId]);
+
+  const recipeDefaultPanId = recipe?.defaultPanId ? String(recipe.defaultPanId) : "";
+  const recipeDefaultPan = useMemo(
+    () => pansWithVolume.find((pan) => String(pan.id) === recipeDefaultPanId),
+    [pansWithVolume, recipeDefaultPanId]
+  );
 
   const scalingFactor = useMemo(() => {
     switch (mode) {
@@ -90,11 +160,22 @@ export default function ScalePage({
             : 1,
         });
       case "pan":
-        return 1; // Pan mode placeholder
+        return calculateScalingFactor({
+          mode: "pan",
+          originalPanVolumeMl: originalPanVolume,
+          targetPanVolumeMl: targetPanVolume,
+        });
       default:
         return 1;
     }
-  }, [mode, multiplier, targetQuantity, recipe]);
+  }, [
+    mode,
+    multiplier,
+    targetQuantity,
+    recipe,
+    originalPanVolume,
+    targetPanVolume,
+  ]);
 
   const scaledIngredients: ScaledIngredient[] = useMemo(() => {
     if (!recipe?.ingredients) return [];
@@ -234,9 +315,80 @@ export default function ScalePage({
           </TabsContent>
 
           <TabsContent value="pan">
-            <div className="py-6 text-center text-sm text-text-secondary">
-              Pan-based scaling coming soon. Use the multiplier or quantity
-              target modes for now.
+            <div className="space-y-4 pt-2">
+              {pansWithVolume.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border p-4 text-sm text-text-secondary">
+                  Add pans with a volume to use pan-based scaling.
+                </div>
+              ) : (
+                <>
+                  {recipeDefaultPan ? (
+                    <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3 text-sm">
+                      <p className="text-text-secondary">
+                        Recipe default pan:{" "}
+                        <span className="font-medium text-text-primary">
+                          {recipeDefaultPan.name}
+                        </span>
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOriginalPanId(String(recipeDefaultPan.id))}
+                      >
+                        Use Recipe Default Pan
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Original Pan</Label>
+                      <Select value={originalPanId} onValueChange={setOriginalPanId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select original pan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pansWithVolume.map((pan) => (
+                            <SelectItem key={pan.id} value={String(pan.id)}>
+                              {pan.name} ({Math.round(parseFloat(pan.volumeMl ?? "0"))} ml)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Target Pan</Label>
+                      <Select value={targetPanId} onValueChange={setTargetPanId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select target pan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pansWithVolume.map((pan) => (
+                            <SelectItem key={pan.id} value={String(pan.id)}>
+                              {pan.name} ({Math.round(parseFloat(pan.volumeMl ?? "0"))} ml)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {originalPanId && targetPanId ? (
+                    <p className="text-sm text-text-secondary">
+                      Pan scale factor:{" "}
+                      <span className="font-mono font-medium text-accent">
+                        {scalingFactor.toFixed(2)}x
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-text-secondary">
+                      Select both pans to calculate scaling.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           </TabsContent>
         </Tabs>
