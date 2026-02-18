@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { getAvailableRecipes } from "@/lib/actions/recipes";
 import { createOrder } from "@/lib/actions/orders";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,8 @@ export default function CustomerOrderFormPage() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSubmitted, setOrderSubmitted] = useState(false);
+  const [submittedTotal, setSubmittedTotal] = useState(0);
+  const [submittedOrderId, setSubmittedOrderId] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchRecipes() {
@@ -108,6 +111,8 @@ export default function CustomerOrderFormPage() {
       });
 
       if (orderResult.success) {
+        setSubmittedTotal(totalPrice);
+        setSubmittedOrderId(orderResult.data?.id ?? null);
         setOrderSubmitted(true);
         // Reset form
         setQuantities({});
@@ -138,12 +143,31 @@ export default function CustomerOrderFormPage() {
         <p className="mb-8 text-lg text-text-secondary">
           Thank you for your order! You'll hear from me within 24 hours to confirm.
         </p>
-        <Button
-          onClick={() => setOrderSubmitted(false)}
-          size="lg"
-        >
-          Place Another Order
-        </Button>
+        <div className="mb-8 rounded-lg border border-border bg-surface p-4 text-left">
+          <p className="text-base font-semibold text-text-primary">
+            Order Total: ${submittedTotal.toFixed(2)}
+          </p>
+          <p className="mt-2 text-sm text-text-secondary">
+            Payment due upon pickup, cash or venmo.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {submittedOrderId ? (
+            <Button asChild variant="outline" size="lg">
+              <Link href={`/orders/${submittedOrderId}/edit`}>Edit Order</Link>
+            </Button>
+          ) : null}
+          <Button
+            onClick={() => {
+              setOrderSubmitted(false);
+              setSubmittedOrderId(null);
+              setSubmittedTotal(0);
+            }}
+            size="lg"
+          >
+            Place Another Order
+          </Button>
+        </div>
       </div>
     );
   }
