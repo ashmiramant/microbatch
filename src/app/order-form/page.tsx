@@ -203,6 +203,11 @@ export default function CustomerOrderFormPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-8 text-center">
+        <img
+          src="https://res.cloudinary.com/da6u3wxr8/image/upload/v1771440625/BRB-_Logo_1_gdigbm.png"
+          alt="BRB Logo"
+          className="mx-auto mb-6 h-auto w-full max-w-[220px]"
+        />
         <h1 className="mb-2 font-serif text-4xl font-semibold text-text-primary">
           Place Your Order
         </h1>
