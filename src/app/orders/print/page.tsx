@@ -94,6 +94,12 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
         }
 
         @media print {
+          html,
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
           .print-controls {
             display: none !important;
           }
@@ -107,6 +113,11 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
             border-radius: 0;
             padding: 0.18in;
             margin: 0;
+          }
+
+          .print-sheet:last-child {
+            page-break-after: auto;
+            break-after: auto;
           }
         }
       `}</style>

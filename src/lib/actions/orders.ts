@@ -34,6 +34,83 @@ type UpdateOrderInput = Partial<Omit<CreateOrderInput, "items">> & {
   items?: OrderItemInput[];
 };
 
+type PublicOrderEditInput = {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes?: string | null;
+  items: OrderItemInput[];
+};
+
+type ParsedOrderDetails = {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes: string;
+  editToken: string;
+};
+
+function parseOrderDetails(notes: string | null): ParsedOrderDetails {
+  const source = notes ?? "";
+  const lines = source.split(/\r?\n/);
+
+  let customerName = "";
+  let customerEmail = "";
+  let customerPhone = "";
+  let editToken = "";
+  let inNotesSection = false;
+  const noteLines: string[] = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!inNotesSection && line.toLowerCase().startsWith("customer:")) {
+      customerName = line.replace(/^customer:\s*/i, "").trim();
+      continue;
+    }
+    if (!inNotesSection && line.toLowerCase().startsWith("email:")) {
+      customerEmail = line.replace(/^email:\s*/i, "").trim();
+      continue;
+    }
+    if (!inNotesSection && line.toLowerCase().startsWith("phone:")) {
+      customerPhone = line.replace(/^phone:\s*/i, "").trim();
+      continue;
+    }
+    if (!inNotesSection && line.toLowerCase().startsWith("edit token:")) {
+      editToken = line.replace(/^edit token:\s*/i, "").trim();
+      continue;
+    }
+    if (!inNotesSection && line.toLowerCase().startsWith("notes:")) {
+      inNotesSection = true;
+      const firstNotesLine = rawLine.replace(/^notes:\s*/i, "");
+      noteLines.push(firstNotesLine);
+      continue;
+    }
+    if (inNotesSection) {
+      noteLines.push(rawLine);
+    }
+  }
+
+  return {
+    customerName,
+    customerEmail,
+    customerPhone,
+    customerNotes: noteLines.join("\n").trim(),
+    editToken,
+  };
+}
+
+function buildOrderNotes(details: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes?: string | null;
+  editToken?: string | null;
+}) {
+  const notesBody = details.customerNotes?.trim() ? details.customerNotes.trim() : "None";
+  const tokenLine = details.editToken ? `\nEdit Token: ${details.editToken}` : "";
+  return `Customer: ${details.customerName}\nEmail: ${details.customerEmail}\nPhone: ${details.customerPhone}${tokenLine}\n\nNotes: ${notesBody}`;
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export async function createOrder(data: CreateOrderInput) {
@@ -220,19 +297,6 @@ export async function unarchiveOrder(id: number) {
   return updateOrderStatus(id, "confirmed");
 }
 
-function extractCustomerDetails(notes: string | null) {
-  const source = notes ?? "";
-  const nameMatch = source.match(/^Customer:\s*(.+)$/im);
-  const emailMatch = source.match(/^Email:\s*(.+)$/im);
-  const notesMatch = source.match(/^Notes:\s*([\s\S]*)$/im);
-
-  return {
-    customerName: (nameMatch?.[1] ?? "").trim(),
-    customerEmail: (emailMatch?.[1] ?? "").trim(),
-    customerNotes: (notesMatch?.[1] ?? "").trim(),
-  };
-}
-
 async function sendConfirmationEmailForOrder(orderId: number) {
   try {
     const order = await db.query.orders.findFirst({
@@ -248,7 +312,7 @@ async function sendConfirmationEmailForOrder(orderId: number) {
 
     if (!order) return;
 
-    const { customerName, customerEmail, customerNotes } = extractCustomerDetails(
+    const { customerName, customerEmail, customerNotes } = parseOrderDetails(
       order.notes
     );
 
@@ -267,5 +331,114 @@ async function sendConfirmationEmailForOrder(orderId: number) {
   } catch (error) {
     // Do not block status updates if email fails.
     console.error("Failed to send order confirmation email:", error);
+  }
+}
+
+export async function getPublicOrderForEdit(id: number, token: string) {
+  try {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, id),
+      with: {
+        items: {
+          with: {
+            recipe: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return { success: false, error: "Order not found" };
+    }
+
+    const details = parseOrderDetails(order.notes);
+    if (!token || !details.editToken || details.editToken !== token) {
+      return { success: false, error: "This edit link is invalid or expired." };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: order.id,
+        status: order.status,
+        customerName: details.customerName,
+        customerEmail: details.customerEmail,
+        customerPhone: details.customerPhone,
+        customerNotes: details.customerNotes === "None" ? "" : details.customerNotes,
+        items: order.items.map((item) => ({
+          recipeId: item.recipeId,
+          quantity: item.quantity,
+          recipeName: item.recipe?.name ?? `Item #${item.recipeId}`,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error("Failed to get public order for edit:", error);
+    return { success: false, error: "Failed to load order." };
+  }
+}
+
+export async function updatePublicOrderFromLink(
+  id: number,
+  token: string,
+  data: PublicOrderEditInput
+) {
+  try {
+    const existingOrder = await db.query.orders.findFirst({
+      where: eq(orders.id, id),
+    });
+
+    if (!existingOrder) {
+      return { success: false, error: "Order not found" };
+    }
+
+    if (existingOrder.status === "archived") {
+      return { success: false, error: "Archived orders cannot be edited." };
+    }
+
+    const details = parseOrderDetails(existingOrder.notes);
+    if (!token || !details.editToken || details.editToken !== token) {
+      return { success: false, error: "This edit link is invalid or expired." };
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(orders)
+        .set({
+          name: `${data.customerName} - ${new Date(
+            existingOrder.createdAt ?? new Date()
+          ).toLocaleDateString("en-US")}`,
+          notes: buildOrderNotes({
+            customerName: data.customerName,
+            customerEmail: data.customerEmail,
+            customerPhone: data.customerPhone,
+            customerNotes: data.customerNotes,
+            editToken: details.editToken,
+          }),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, id));
+
+      await tx.delete(orderItems).where(eq(orderItems.orderId, id));
+      if (data.items.length > 0) {
+        await tx.insert(orderItems).values(
+          data.items.map((item) => ({
+            orderId: id,
+            recipeId: item.recipeId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            notes: item.notes,
+          }))
+        );
+      }
+    });
+
+    revalidatePath("/orders");
+    revalidatePath(`/orders/${id}`);
+    revalidatePath(`/order-form/edit/${id}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update public order:", error);
+    return { success: false, error: "Failed to save changes." };
   }
 }

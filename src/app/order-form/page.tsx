@@ -38,6 +38,7 @@ export default function CustomerOrderFormPage() {
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [submittedTotal, setSubmittedTotal] = useState(0);
   const [submittedOrderId, setSubmittedOrderId] = useState<number | null>(null);
+  const [submittedEditToken, setSubmittedEditToken] = useState("");
 
   useEffect(() => {
     async function fetchRecipes() {
@@ -97,7 +98,8 @@ export default function CustomerOrderFormPage() {
 
     setIsSubmitting(true);
     try {
-      const orderNotes = `Customer: ${customerName}\nEmail: ${customerEmail}\nPhone: ${customerPhone}\n\nNotes: ${notes || "None"}`;
+      const editToken = crypto.randomUUID();
+      const orderNotes = `Customer: ${customerName}\nEmail: ${customerEmail}\nPhone: ${customerPhone}\nEdit Token: ${editToken}\n\nNotes: ${notes || "None"}`;
 
       const orderResult = await createOrder({
         name: `${customerName} - ${new Date().toLocaleDateString()}`,
@@ -113,6 +115,7 @@ export default function CustomerOrderFormPage() {
       if (orderResult.success) {
         setSubmittedTotal(totalPrice);
         setSubmittedOrderId(orderResult.data?.id ?? null);
+        setSubmittedEditToken(editToken);
         setOrderSubmitted(true);
         // Reset form
         setQuantities({});
@@ -154,7 +157,11 @@ export default function CustomerOrderFormPage() {
         <div className="flex flex-wrap items-center justify-center gap-3">
           {submittedOrderId ? (
             <Button asChild variant="outline" size="lg">
-              <Link href={`/orders/${submittedOrderId}/edit`}>Edit Order</Link>
+              <Link
+                href={`/order-form/edit/${submittedOrderId}?token=${encodeURIComponent(submittedEditToken)}`}
+              >
+                Edit Order
+              </Link>
             </Button>
           ) : null}
           <Button
@@ -162,6 +169,7 @@ export default function CustomerOrderFormPage() {
               setOrderSubmitted(false);
               setSubmittedOrderId(null);
               setSubmittedTotal(0);
+              setSubmittedEditToken("");
             }}
             size="lg"
           >
