@@ -175,7 +175,7 @@ export default function CustomerOrderFormPage() {
           Place Your Order
         </h1>
         <p className="text-xl font-semibold text-accent">
-          Saturday February 21st, Pickups 9am or Later!
+          Saturday, February 21st: Pickup 9am or Later
         </p>
       </div>
 
@@ -206,6 +206,11 @@ export default function CustomerOrderFormPage() {
                       </span>
                     )}
                   </div>
+                  {recipe.description ? (
+                    <p className="mb-3 text-sm leading-relaxed text-text-secondary">
+                      {recipe.description}
+                    </p>
+                  ) : null}
                   <div>
                     <Label htmlFor={`quantity-${recipe.id}`} className="text-sm text-text-secondary">
                       Quantity

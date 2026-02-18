@@ -21,6 +21,106 @@ type CreatePanInput = {
 
 type UpdatePanInput = Partial<CreatePanInput>;
 
+const STANDARD_PANS: CreatePanInput[] = [
+  {
+    name: 'Loaf Pan 9" x 5" x 3"',
+    shape: "rectangular",
+    lengthCm: "22.9",
+    widthCm: "12.7",
+    heightCm: "7.6",
+    volumeMl: "2210",
+    notes: "Standard loaf pan",
+  },
+  {
+    name: 'Loaf Pan 8.5" x 4.5" x 2.75"',
+    shape: "rectangular",
+    lengthCm: "21.6",
+    widthCm: "11.4",
+    heightCm: "7.0",
+    volumeMl: "1720",
+    notes: "Smaller loaf pan",
+  },
+  {
+    name: 'Cake Pan Round 8" x 2"',
+    shape: "round",
+    diameterCm: "20.3",
+    heightCm: "5.1",
+    volumeMl: "1650",
+    notes: "Standard 8-inch round",
+  },
+  {
+    name: 'Cake Pan Round 9" x 2"',
+    shape: "round",
+    diameterCm: "22.9",
+    heightCm: "5.1",
+    volumeMl: "2100",
+    notes: "Standard 9-inch round",
+  },
+  {
+    name: 'Cake Pan Round 10" x 2"',
+    shape: "round",
+    diameterCm: "25.4",
+    heightCm: "5.1",
+    volumeMl: "2580",
+    notes: "Standard 10-inch round",
+  },
+  {
+    name: 'Square Pan 8" x 8" x 2"',
+    shape: "square",
+    lengthCm: "20.3",
+    heightCm: "5.1",
+    volumeMl: "2100",
+    notes: "Standard 8-inch square",
+  },
+  {
+    name: 'Square Pan 9" x 9" x 2"',
+    shape: "square",
+    lengthCm: "22.9",
+    heightCm: "5.1",
+    volumeMl: "2670",
+    notes: "Standard 9-inch square",
+  },
+  {
+    name: 'Baking Pan 13" x 9" x 2"',
+    shape: "rectangular",
+    lengthCm: "33.0",
+    widthCm: "22.9",
+    heightCm: "5.1",
+    volumeMl: "3850",
+    notes: "Standard 9x13 pan",
+  },
+  {
+    name: 'Quarter Sheet Pan 13" x 9" x 1"',
+    shape: "rectangular",
+    lengthCm: "33.0",
+    widthCm: "22.9",
+    heightCm: "2.5",
+    volumeMl: "1880",
+    notes: "Quarter sheet",
+  },
+  {
+    name: 'Half Sheet Pan 18" x 13" x 1"',
+    shape: "rectangular",
+    lengthCm: "45.7",
+    widthCm: "33.0",
+    heightCm: "2.5",
+    volumeMl: "3770",
+    notes: "Half sheet",
+  },
+  {
+    name: 'Bundt Pan 10-cup',
+    shape: "bundt",
+    volumeMl: "2360",
+    notes: "Standard 10-cup bundt pan",
+  },
+  {
+    name: 'Muffin Tin 12-cup',
+    shape: "custom",
+    volumeMl: "1900",
+    notes: "Approximate total volume across 12 cups",
+  },
+];
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export async function createPan(data: CreatePanInput) {
@@ -113,5 +213,49 @@ export async function getPans() {
   } catch (error) {
     console.error("Failed to get pans:", error);
     return { success: false, error: "Failed to get pans" };
+  }
+}
+
+export async function seedDefaultPans() {
+  try {
+    const existing = await db.query.pans.findMany({
+      columns: { name: true },
+    });
+
+    const existingNames = new Set(
+      existing.map((pan) => pan.name.trim().toLowerCase())
+    );
+
+    const toInsert = STANDARD_PANS.filter(
+      (pan) => !existingNames.has(pan.name.trim().toLowerCase())
+    );
+
+    if (toInsert.length > 0) {
+      await db.insert(pans).values(
+        toInsert.map((pan) => ({
+          name: pan.name,
+          shape: pan.shape,
+          lengthCm: pan.lengthCm,
+          widthCm: pan.widthCm,
+          diameterCm: pan.diameterCm,
+          heightCm: pan.heightCm,
+          volumeMl: pan.volumeMl,
+          material: pan.material,
+          notes: pan.notes,
+        }))
+      );
+    }
+
+    revalidatePath("/pantry/pans");
+    return {
+      success: true,
+      data: {
+        inserted: toInsert.length,
+        skipped: STANDARD_PANS.length - toInsert.length,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to load standard pans:", error);
+    return { success: false, error: "Failed to load standard pans" };
   }
 }

@@ -30,7 +30,12 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { createPan, updatePan, deletePan } from "@/lib/actions/pans";
+import {
+  createPan,
+  updatePan,
+  deletePan,
+  seedDefaultPans,
+} from "@/lib/actions/pans";
 import { calculatePanVolume } from "@/lib/services/scaling-engine";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
@@ -218,6 +223,20 @@ export function PansClient({ pans }: { pans: Pan[] }) {
       await deletePan(selectedPan.id);
       setDeleteOpen(false);
       setSelectedPan(null);
+    });
+  }
+
+  function handleLoadStandardPans() {
+    startTransition(async () => {
+      const result = await seedDefaultPans();
+      if (!result.success || !result.data) {
+        alert("Could not load standard pans. Please try again.");
+        return;
+      }
+
+      alert(
+        `Loaded standard pans.\nAdded: ${result.data.inserted}\nAlready existed: ${result.data.skipped}`
+      );
     });
   }
 
@@ -452,7 +471,10 @@ export function PansClient({ pans }: { pans: Pan[] }) {
   return (
     <>
       {/* Action Bar */}
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex flex-wrap justify-end gap-2">
+        <Button variant="outline" onClick={handleLoadStandardPans} disabled={isPending}>
+          Load Standard Pans
+        </Button>
         <Button onClick={openAdd}>
           <Plus className="mr-2 h-4 w-4" />
           Add Pan

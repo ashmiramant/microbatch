@@ -90,21 +90,38 @@ export default function ScalePage({
             const panList = pansResult.data as unknown as PanData[];
             setPans(panList);
 
+            const pansWithVolumeList = panList.filter((pan) => {
+              const volume = pan.volumeMl ? parseFloat(pan.volumeMl) : 0;
+              return volume > 0;
+            });
+
             const recipeDefaultPanId = recipeData.defaultPanId
               ? String(recipeData.defaultPanId)
               : "";
 
+            let initialOriginalPanId = "";
+
             if (
               recipeDefaultPanId &&
-              panList.some((pan) => String(pan.id) === recipeDefaultPanId)
+              pansWithVolumeList.some((pan) => String(pan.id) === recipeDefaultPanId)
             ) {
-              setOriginalPanId(recipeDefaultPanId);
-              const firstDifferentPan = panList.find(
-                (pan) => String(pan.id) !== recipeDefaultPanId
+              initialOriginalPanId = recipeDefaultPanId;
+            } else if (pansWithVolumeList.length > 0) {
+              // Fallback so pan scaling still works even without a default pan.
+              initialOriginalPanId = String(pansWithVolumeList[0].id);
+            }
+
+            if (initialOriginalPanId) {
+              setOriginalPanId(initialOriginalPanId);
+
+              const firstDifferentPan = pansWithVolumeList.find(
+                (pan) => String(pan.id) !== initialOriginalPanId
               );
-              if (firstDifferentPan) {
-                setTargetPanId(String(firstDifferentPan.id));
-              }
+              setTargetPanId(
+                firstDifferentPan
+                  ? String(firstDifferentPan.id)
+                  : initialOriginalPanId
+              );
             }
           }
         } else {
@@ -322,6 +339,20 @@ export default function ScalePage({
                 </div>
               ) : (
                 <>
+                  {!recipe?.defaultPanId ? (
+                    <div className="rounded-md border border-dashed border-border p-3 text-sm text-text-secondary">
+                      This recipe does not have a default pan saved yet. Using the
+                      selected Original Pan below.
+                    </div>
+                  ) : null}
+
+                  {recipe?.defaultPanId && !recipeDefaultPan ? (
+                    <div className="rounded-md border border-dashed border-border p-3 text-sm text-text-secondary">
+                      The recipe's default pan is missing a usable volume. Please
+                      pick an Original Pan below.
+                    </div>
+                  ) : null}
+
                   {recipeDefaultPan ? (
                     <div className="flex items-center justify-between rounded-md border border-border/70 bg-background p-3 text-sm">
                       <p className="text-text-secondary">
