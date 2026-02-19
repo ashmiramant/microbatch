@@ -48,6 +48,7 @@ type ParsedOrderDetails = {
   customerPhone: string;
   customerNotes: string;
   editToken: string;
+  confirmationEmailSentAt: string;
 };
 
 function parseOrderDetails(notes: string | null): ParsedOrderDetails {
@@ -58,6 +59,7 @@ function parseOrderDetails(notes: string | null): ParsedOrderDetails {
   let customerEmail = "";
   let customerPhone = "";
   let editToken = "";
+  let confirmationEmailSentAt = "";
   let inNotesSection = false;
   const noteLines: string[] = [];
 
@@ -79,6 +81,15 @@ function parseOrderDetails(notes: string | null): ParsedOrderDetails {
       editToken = line.replace(/^edit token:\s*/i, "").trim();
       continue;
     }
+    if (
+      !inNotesSection &&
+      line.toLowerCase().startsWith("confirmation email sent at:")
+    ) {
+      confirmationEmailSentAt = line
+        .replace(/^confirmation email sent at:\s*/i, "")
+        .trim();
+      continue;
+    }
     if (!inNotesSection && line.toLowerCase().startsWith("notes:")) {
       inNotesSection = true;
       const firstNotesLine = rawLine.replace(/^notes:\s*/i, "");
@@ -96,6 +107,7 @@ function parseOrderDetails(notes: string | null): ParsedOrderDetails {
     customerPhone,
     customerNotes: noteLines.join("\n").trim(),
     editToken,
+    confirmationEmailSentAt,
   };
 }
 
@@ -105,10 +117,14 @@ function buildOrderNotes(details: {
   customerPhone: string;
   customerNotes?: string | null;
   editToken?: string | null;
+  confirmationEmailSentAt?: string | null;
 }) {
   const notesBody = details.customerNotes?.trim() ? details.customerNotes.trim() : "None";
   const tokenLine = details.editToken ? `\nEdit Token: ${details.editToken}` : "";
-  return `Customer: ${details.customerName}\nEmail: ${details.customerEmail}\nPhone: ${details.customerPhone}${tokenLine}\n\nNotes: ${notesBody}`;
+  const confirmationLine = details.confirmationEmailSentAt
+    ? `\nConfirmation Email Sent At: ${details.confirmationEmailSentAt}`
+    : "";
+  return `Customer: ${details.customerName}\nEmail: ${details.customerEmail}\nPhone: ${details.customerPhone}${tokenLine}${confirmationLine}\n\nNotes: ${notesBody}`;
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -312,7 +328,14 @@ async function sendConfirmationEmailForOrder(orderId: number) {
 
     if (!order) return;
 
-    const { customerName, customerEmail, customerNotes } = parseOrderDetails(
+    const {
+      customerName,
+      customerEmail,
+      customerNotes,
+      confirmationEmailSentAt,
+      editToken,
+      customerPhone,
+    } = parseOrderDetails(
       order.notes
     );
 
@@ -328,6 +351,23 @@ async function sendConfirmationEmailForOrder(orderId: number) {
       })),
       notes: customerNotes || null,
     });
+
+    if (!confirmationEmailSentAt) {
+      await db
+        .update(orders)
+        .set({
+          notes: buildOrderNotes({
+            customerName: customerName || "Customer",
+            customerEmail,
+            customerPhone: customerPhone || "",
+            customerNotes,
+            editToken: editToken || null,
+            confirmationEmailSentAt: new Date().toISOString(),
+          }),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId));
+    }
   } catch (error) {
     // Do not block status updates if email fails.
     console.error("Failed to send order confirmation email:", error);
@@ -414,6 +454,7 @@ export async function updatePublicOrderFromLink(
             customerPhone: data.customerPhone,
             customerNotes: data.customerNotes,
             editToken: details.editToken,
+            confirmationEmailSentAt: details.confirmationEmailSentAt || null,
           }),
           updatedAt: new Date(),
         })

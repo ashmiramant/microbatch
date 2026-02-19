@@ -30,6 +30,12 @@ const statusConfig: Record<
   archived: { label: "Archived", variant: "secondary" },
 };
 
+function getConfirmationEmailSentAt(notes: string | null) {
+  if (!notes) return "";
+  const match = notes.match(/^Confirmation Email Sent At:\s*(.+)$/im);
+  return (match?.[1] ?? "").trim();
+}
+
 export default async function OrderDetailPage({
   params,
 }: {
@@ -45,6 +51,7 @@ export default async function OrderDetailPage({
   const order = result.data;
   const status = statusConfig[order.status ?? "draft"];
   const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const confirmationEmailSentAt = getConfirmationEmailSentAt(order.notes);
 
   return (
     <div>
@@ -173,6 +180,19 @@ export default async function OrderDetailPage({
                 </p>
                 <p className="mt-1 text-sm text-text-primary">
                   {order.updatedAt ? formatDateTime(order.updatedAt) : "--"}
+                </p>
+              </div>
+
+              <Separator />
+
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-text-secondary">
+                  Confirmation Email
+                </p>
+                <p className="mt-1 text-sm text-text-primary">
+                  {confirmationEmailSentAt
+                    ? `Sent ${formatDateTime(new Date(confirmationEmailSentAt))}`
+                    : "Not sent yet"}
                 </p>
               </div>
             </CardContent>
