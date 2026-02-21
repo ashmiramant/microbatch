@@ -11,6 +11,12 @@ type PrintPageProps = {
   }>;
 };
 
+function parsePrice(value: string | null | undefined) {
+  if (!value) return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export default async function OrdersPrintPage({ searchParams }: PrintPageProps) {
   await requireAuth();
   const params = await searchParams;
@@ -45,6 +51,14 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
 
       {ordersToPrint.map((order) => (
         <article key={order.id} className="print-sheet rounded border border-border p-4">
+          {(() => {
+            const orderTotal = order.items.reduce((sum, item) => {
+              const unitPrice = parsePrice(item.unitPrice ?? item.recipe?.price ?? null);
+              return sum + unitPrice * item.quantity;
+            }, 0);
+
+            return (
+              <>
           <header className="border-b border-border pb-2">
             <h1 className="font-serif text-xl font-semibold text-text-primary">
               {order.name}
@@ -63,10 +77,14 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
               <ul className="mt-1 space-y-1 text-sm text-text-primary">
                 {order.items.map((item) => {
                   const recipeName = item.recipe?.name ?? `Recipe #${item.recipeId}`;
+                  const unitPrice = parsePrice(item.unitPrice ?? item.recipe?.price ?? null);
+                  const lineTotal = unitPrice * item.quantity;
                   return (
                     <li key={item.id} className="flex justify-between gap-2">
-                      <span className="truncate pr-2">{recipeName}</span>
-                      <span className="font-mono">x{item.quantity}</span>
+                      <span className="truncate pr-2">
+                        {recipeName} x{item.quantity}
+                      </span>
+                      <span className="font-mono">${lineTotal.toFixed(2)}</span>
                     </li>
                   );
                 })}
@@ -74,6 +92,15 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
             ) : (
               <p className="mt-1 text-sm text-text-secondary">No items.</p>
             )}
+          </section>
+
+          <section className="mt-3 border-t border-border pt-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text-primary">Order Total</h2>
+              <p className="font-mono text-base font-semibold text-text-primary">
+                ${orderTotal.toFixed(2)}
+              </p>
+            </div>
           </section>
 
           {order.notes ? (
@@ -84,6 +111,9 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
               </p>
             </section>
           ) : null}
+              </>
+            );
+          })()}
         </article>
       ))}
 
