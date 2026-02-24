@@ -8,8 +8,9 @@ export default function RootedCommunityOrderFormPage() {
       channel="rooted_community"
       title="Rooted Community Order Form"
       headerLines={[
-        "Pickup at Fig Mint Farms, 1501 Two Pond Lane, Apex, from 4:30-5:30pm.",
-        "Pre-Orders close 9pm, the Sunday before.",
+        "Fig Mint Farms, 1501 Two Pond Lane, Apex 4:30-5:30pm",
+        "Pre-orders close 9pm the Sunday before pickups",
+        "Payment due upon pickup",
       ]}
     />
   );
