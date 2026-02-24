@@ -1,7 +1,10 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { requireAuth } from "@/lib/auth";
 import { SettingsClient } from "./settings-client";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  await requireAuth();
+
   return (
     <div>
       <PageHeader

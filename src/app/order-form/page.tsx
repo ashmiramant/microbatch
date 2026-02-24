@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getAvailableRecipes } from "@/lib/actions/recipes";
 import { createOrder } from "@/lib/actions/orders";
+import { getOrderFormAvailability } from "@/lib/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,40 +27,8 @@ type Recipe = {
   price: string | null;
 };
 
-const ORDER_FORM_OPEN = process.env.NEXT_PUBLIC_ORDER_FORM_OPEN === "true";
-
 export default function CustomerOrderFormPage() {
-  if (!ORDER_FORM_OPEN) {
-    return (
-      <div className="mx-auto flex min-h-[75vh] w-full max-w-3xl items-center px-4 py-10">
-        <Card className="w-full border-border bg-surface p-8 text-center shadow-sm">
-          <img
-            src="https://res.cloudinary.com/da6u3wxr8/image/upload/v1771440625/BRB-_Logo_1_gdigbm.png"
-            alt="BRB Logo"
-            className="mx-auto mb-6 h-auto w-full max-w-[180px]"
-          />
-          <p className="mb-3 inline-block rounded-full bg-background px-3 py-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-            Weekly Update
-          </p>
-          <h1 className="mb-3 font-serif text-4xl font-semibold text-text-primary">
-            Orders Are Closed This Week
-          </h1>
-          <p className="mx-auto mb-6 max-w-xl text-base leading-relaxed text-text-secondary">
-            Thank you so much for your support. Online ordering is temporarily closed for the week.
-          </p>
-          <div className="mx-auto max-w-xl rounded-xl border border-border bg-background p-4">
-            <p className="text-lg font-semibold text-accent">
-              The bake stand will be open Saturday at 9:00 AM!
-            </p>
-          </div>
-          <p className="mt-6 text-sm text-text-secondary">
-            Please check back soon when next week's order form reopens.
-          </p>
-        </Card>
-      </div>
-    );
-  }
-
+  const [orderFormOpen, setOrderFormOpen] = useState<boolean | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -75,6 +44,15 @@ export default function CustomerOrderFormPage() {
 
   useEffect(() => {
     async function fetchRecipes() {
+      const settingResult = await getOrderFormAvailability();
+      const isOpen = settingResult.data ?? false;
+      setOrderFormOpen(isOpen);
+
+      if (!isOpen) {
+        setLoading(false);
+        return;
+      }
+
       const result = await getAvailableRecipes();
       if (result.success && result.data) {
         setRecipes(
@@ -213,7 +191,38 @@ export default function CustomerOrderFormPage() {
     );
   }
 
-  if (loading) {
+  if (orderFormOpen === false) {
+    return (
+      <div className="mx-auto flex min-h-[75vh] w-full max-w-3xl items-center px-4 py-10">
+        <Card className="w-full border-border bg-surface p-8 text-center shadow-sm">
+          <img
+            src="https://res.cloudinary.com/da6u3wxr8/image/upload/v1771440625/BRB-_Logo_1_gdigbm.png"
+            alt="BRB Logo"
+            className="mx-auto mb-6 h-auto w-full max-w-[180px]"
+          />
+          <p className="mb-3 inline-block rounded-full bg-background px-3 py-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+            Weekly Update
+          </p>
+          <h1 className="mb-3 font-serif text-4xl font-semibold text-text-primary">
+            Orders Are Closed This Week
+          </h1>
+          <p className="mx-auto mb-6 max-w-xl text-base leading-relaxed text-text-secondary">
+            Thank you so much for your support. Online ordering is temporarily closed for the week.
+          </p>
+          <div className="mx-auto max-w-xl rounded-xl border border-border bg-background p-4">
+            <p className="text-lg font-semibold text-accent">
+              The bake stand will be open Saturday at 9:00 AM!
+            </p>
+          </div>
+          <p className="mt-6 text-sm text-text-secondary">
+            Please check back soon when next week's order form reopens.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading || orderFormOpen === null) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-8 text-center">

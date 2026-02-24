@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import {
+  getOrderFormAvailability,
+  setOrderFormAvailability,
+} from "@/lib/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +26,81 @@ import {
 import { cn } from "@/lib/utils";
 
 export function SettingsClient() {
+  const [isPending, startTransition] = useTransition();
+  const [orderFormOpen, setOrderFormOpen] = useState<boolean | null>(null);
+  const [orderFormMessage, setOrderFormMessage] = useState("");
   const [unitSystem, setUnitSystem] = useState<"metric" | "imperial">("metric");
   const [defaultTemplate, setDefaultTemplate] = useState("standard");
   const [defaultBakeTime, setDefaultBakeTime] = useState("45");
 
+  useEffect(() => {
+    startTransition(async () => {
+      const result = await getOrderFormAvailability();
+      setOrderFormOpen(result.data ?? false);
+      if (!result.success) {
+        setOrderFormMessage("Could not load current status. You can still try again.");
+      }
+    });
+  }, []);
+
+  function updateOrderFormStatus(nextValue: boolean) {
+    setOrderFormMessage("");
+    startTransition(async () => {
+      const result = await setOrderFormAvailability(nextValue);
+      if (!result.success) {
+        setOrderFormMessage("Could not save right now. Please try again.");
+        return;
+      }
+      setOrderFormOpen(nextValue);
+      setOrderFormMessage(
+        nextValue
+          ? "Order form is now ON. Customers can submit new orders."
+          : "Order form is now OFF. Customers will see the closed message."
+      );
+    });
+  }
+
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Form Availability</CardTitle>
+          <CardDescription>
+            Quickly turn customer ordering on or off whenever you want.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              onClick={() => updateOrderFormStatus(true)}
+              disabled={isPending || orderFormOpen === true}
+            >
+              Turn Order Form On
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => updateOrderFormStatus(false)}
+              disabled={isPending || orderFormOpen === false}
+            >
+              Turn Order Form Off
+            </Button>
+            <Badge variant={orderFormOpen ? "success" : "secondary"}>
+              {orderFormOpen ? "Currently ON" : "Currently OFF"}
+            </Badge>
+          </div>
+          <p className="mt-3 text-sm text-text-secondary">
+            {orderFormOpen
+              ? "Customers will see the order form and can submit orders."
+              : "Customers will see your weekly closed message page."}
+          </p>
+          {orderFormMessage ? (
+            <p className="mt-2 text-sm text-text-secondary">{orderFormMessage}</p>
+          ) : null}
+        </CardContent>
+      </Card>
+
       {/* Default Units */}
       <Card>
         <CardHeader>
