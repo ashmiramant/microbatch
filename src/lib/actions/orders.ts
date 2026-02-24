@@ -406,6 +406,7 @@ export async function getPublicOrderForEdit(id: number, token: string) {
       success: true,
       data: {
         id: order.id,
+        name: order.name,
         status: order.status,
         customerName: details.customerName,
         customerEmail: details.customerEmail,

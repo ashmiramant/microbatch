@@ -73,7 +73,8 @@ export default function EditRecipePage({
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string>("");
   const [isSourdough, setIsSourdough] = useState(false);
-  const [availableForOrder, setAvailableForOrder] = useState(false);
+  const [availableForMainOrder, setAvailableForMainOrder] = useState(false);
+  const [availableForRootedOrder, setAvailableForRootedOrder] = useState(false);
   const [price, setPrice] = useState("");
   const [yieldQuantity, setYieldQuantity] = useState("");
   const [yieldUnit, setYieldUnit] = useState("");
@@ -106,7 +107,10 @@ export default function EditRecipePage({
       setDescription(r.description || "");
       setCategory(r.category || "");
       setIsSourdough(r.isSourdough || false);
-      setAvailableForOrder(r.availableForOrder || false);
+      setAvailableForMainOrder(
+        r.availableForMainOrder ?? r.availableForOrder ?? false
+      );
+      setAvailableForRootedOrder(r.availableForRootedOrder || false);
       setPrice(r.price || "");
       setYieldQuantity(r.yieldQuantity || "");
       setYieldUnit(r.yieldUnit || "");
@@ -201,7 +205,9 @@ export default function EditRecipePage({
         description: description.trim() || null,
         category: category || null,
         isSourdough: isSourdough || null,
-        availableForOrder: availableForOrder || null,
+        availableForOrder: availableForMainOrder || availableForRootedOrder,
+        availableForMainOrder: availableForMainOrder,
+        availableForRootedOrder: availableForRootedOrder,
         price: price.trim() || null,
         yieldQuantity: yieldQuantity.trim() || null,
         yieldUnit: yieldUnit.trim() || null,
@@ -372,17 +378,31 @@ export default function EditRecipePage({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface p-4">
-            <Checkbox
-              id="available-for-order"
-              checked={availableForOrder}
-              onCheckedChange={(checked) =>
-                setAvailableForOrder(checked === true)
-              }
-            />
-            <Label htmlFor="available-for-order" className="cursor-pointer">
-              Available for customer orders
-            </Label>
+          <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="available-for-main-order"
+                checked={availableForMainOrder}
+                onCheckedChange={(checked) =>
+                  setAvailableForMainOrder(checked === true)
+                }
+              />
+              <Label htmlFor="available-for-main-order" className="cursor-pointer">
+                Show on Main Order Form
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="available-for-rooted-order"
+                checked={availableForRootedOrder}
+                onCheckedChange={(checked) =>
+                  setAvailableForRootedOrder(checked === true)
+                }
+              />
+              <Label htmlFor="available-for-rooted-order" className="cursor-pointer">
+                Show on Rooted Community Order Form
+              </Label>
+            </div>
           </div>
         </section>
 

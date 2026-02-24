@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
-import { getAvailableRecipes } from "@/lib/actions/recipes";
+import { getAvailableRecipesByChannel } from "@/lib/actions/recipes";
 import {
   getPublicOrderForEdit,
   updatePublicOrderFromLink,
@@ -58,16 +58,17 @@ export default function EditOrderFromLinkPage({
     async function loadData() {
       setLoading(true);
       setError("");
-      const [recipesResult, orderResult] = await Promise.all([
-        getAvailableRecipes(),
-        getPublicOrderForEdit(orderId, token),
-      ]);
+      const orderResult = await getPublicOrderForEdit(orderId, token);
 
       if (!orderResult.success || !orderResult.data) {
         setError(orderResult.error ?? "Could not load this order.");
         setLoading(false);
         return;
       }
+
+      const channel =
+        orderResult.data.name?.startsWith("[Rooted Community]") ? "rooted_community" : "main";
+      const recipesResult = await getAvailableRecipesByChannel(channel);
 
       if (recipesResult.success && recipesResult.data) {
         setRecipes(

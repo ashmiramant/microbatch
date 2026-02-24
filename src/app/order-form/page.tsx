@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getAvailableRecipes } from "@/lib/actions/recipes";
+import { getAvailableRecipesByChannel } from "@/lib/actions/recipes";
 import { createOrder } from "@/lib/actions/orders";
 import {
   getOrderFormAvailability,
@@ -69,7 +69,7 @@ export function PublicOrderForm({
         return;
       }
 
-      const result = await getAvailableRecipes();
+      const result = await getAvailableRecipesByChannel(channel);
       if (result.success && result.data) {
         setRecipes(
           result.data.map((r) => ({

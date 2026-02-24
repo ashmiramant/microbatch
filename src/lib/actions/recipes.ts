@@ -6,7 +6,7 @@ import {
   recipeIngredients,
   recipeInstructions,
 } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -52,6 +52,8 @@ type CreateRecipeInput = {
   category?: string | null;
   isSourdough?: boolean | null;
   availableForOrder?: boolean | null;
+  availableForMainOrder?: boolean | null;
+  availableForRootedOrder?: boolean | null;
   defaultPanId?: number | null;
   notes?: string | null;
   rawLdJson?: unknown;
@@ -82,6 +84,7 @@ function generateSlug(name: string): string {
 
 export async function createRecipe(data: CreateRecipeInput) {
   try {
+    await ensureRecipeOrderFormColumns();
     const slug = data.slug || generateSlug(data.name);
 
     const result = await db.transaction(async (tx) => {
@@ -102,6 +105,9 @@ export async function createRecipe(data: CreateRecipeInput) {
           totalTimeMinutes: data.totalTimeMinutes,
           category: data.category,
           isSourdough: data.isSourdough,
+          availableForOrder: data.availableForOrder,
+          availableForMainOrder: data.availableForMainOrder,
+          availableForRootedOrder: data.availableForRootedOrder,
           defaultPanId: data.defaultPanId,
           notes: data.notes,
           rawLdJson: data.rawLdJson,
@@ -155,6 +161,7 @@ export async function createRecipe(data: CreateRecipeInput) {
 
 export async function updateRecipe(id: number, data: UpdateRecipeInput) {
   try {
+    await ensureRecipeOrderFormColumns();
     const result = await db.transaction(async (tx) => {
       const { ingredients, instructions, ...recipeFields } = data;
 
@@ -176,6 +183,12 @@ export async function updateRecipe(id: number, data: UpdateRecipeInput) {
       if (recipeFields.category !== undefined) updateValues.category = recipeFields.category;
       if (recipeFields.isSourdough !== undefined) updateValues.isSourdough = recipeFields.isSourdough;
       if (recipeFields.availableForOrder !== undefined) updateValues.availableForOrder = recipeFields.availableForOrder;
+      if (recipeFields.availableForMainOrder !== undefined) {
+        updateValues.availableForMainOrder = recipeFields.availableForMainOrder;
+      }
+      if (recipeFields.availableForRootedOrder !== undefined) {
+        updateValues.availableForRootedOrder = recipeFields.availableForRootedOrder;
+      }
       if (recipeFields.defaultPanId !== undefined) updateValues.defaultPanId = recipeFields.defaultPanId;
       if (recipeFields.notes !== undefined) updateValues.notes = recipeFields.notes;
       if (recipeFields.rawLdJson !== undefined) updateValues.rawLdJson = recipeFields.rawLdJson;
@@ -256,6 +269,7 @@ export async function deleteRecipe(id: number) {
 
 export async function getRecipe(id: number) {
   try {
+    await ensureRecipeOrderFormColumns();
     const recipe = await db.query.recipes.findFirst({
       where: eq(recipes.id, id),
       with: {
@@ -281,6 +295,7 @@ export async function getRecipe(id: number) {
 
 export async function getRecipes() {
   try {
+    await ensureRecipeOrderFormColumns();
     const allRecipes = await db.query.recipes.findMany({
       orderBy: [asc(recipes.name)],
     });
@@ -294,6 +309,7 @@ export async function getRecipes() {
 
 export async function getAvailableRecipes() {
   try {
+    await ensureRecipeOrderFormColumns();
     const availableRecipes = await db.query.recipes.findMany({
       where: eq(recipes.availableForOrder, true),
       orderBy: [asc(recipes.name)],
@@ -308,6 +324,7 @@ export async function getAvailableRecipes() {
 
 export async function getRecipeBySlug(slug: string) {
   try {
+    await ensureRecipeOrderFormColumns();
     const recipe = await db.query.recipes.findFirst({
       where: eq(recipes.slug, slug),
       with: {
@@ -328,5 +345,45 @@ export async function getRecipeBySlug(slug: string) {
   } catch (error) {
     console.error("Failed to get recipe by slug:", error);
     return { success: false, error: "Failed to get recipe by slug" };
+  }
+}
+
+async function ensureRecipeOrderFormColumns() {
+  await db.execute(sql`
+    ALTER TABLE recipes
+    ADD COLUMN IF NOT EXISTS available_for_main_order boolean DEFAULT false
+  `);
+  await db.execute(sql`
+    ALTER TABLE recipes
+    ADD COLUMN IF NOT EXISTS available_for_rooted_order boolean DEFAULT false
+  `);
+  await db.execute(sql`
+    UPDATE recipes
+    SET available_for_main_order = COALESCE(available_for_main_order, available_for_order)
+    WHERE available_for_main_order IS DISTINCT FROM COALESCE(available_for_order, false)
+  `);
+}
+
+export async function getAvailableRecipesByChannel(
+  channel: "main" | "rooted_community"
+) {
+  try {
+    await ensureRecipeOrderFormColumns();
+
+    const availableRecipes = await db.query.recipes.findMany({
+      where:
+        channel === "rooted_community"
+          ? eq(recipes.availableForRootedOrder, true)
+          : eq(recipes.availableForMainOrder, true),
+      orderBy: [asc(recipes.name)],
+    });
+
+    return { success: true, data: availableRecipes };
+  } catch (error) {
+    console.error("Failed to get available recipes by channel:", error);
+    return {
+      success: false,
+      error: "Failed to get channel-specific available recipes",
+    };
   }
 }
