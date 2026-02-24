@@ -114,6 +114,19 @@ export function PublicOrderForm({
 
   const totalItems = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const reminders =
+    channel === "rooted_community"
+      ? [
+          "After submitting this form, you'll hear from me within 24 hours to confirm your order!",
+          "Pickup is 4:30pm - 5:30 ever other Tuesday!",
+          "Payment is due at pickup cash or Venmo (@AshleyRidley)",
+        ]
+      : [
+          "After submitting this form, you'll hear from me within 24 hours to confirm your order!",
+          "Pickup is anytime after 9am on Saturdays! Please be in touch if you'll be picking up after dark.",
+          "Payment is due at pickup cash or Venmo (@AshleyRidley)",
+          "1006 Kingsway Dr. Apex",
+        ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -453,18 +466,9 @@ export function PublicOrderForm({
                   Reminders:
                 </h3>
                 <ul className="space-y-2 text-text-secondary">
-                  <li>
-                    After submitting this form, you'll hear from me within 24 hours to confirm your order!
-                  </li>
-                  <li>
-                    Pickup is anytime after 9am on Saturdays! Please be in touch if you'll be picking up after dark.
-                  </li>
-                  <li>
-                    Payment is due at pickup cash or Venmo (@AshleyRidley)
-                  </li>
-                  <li>
-                    1006 Kingsway Dr. Apex
-                  </li>
+                  {reminders.map((reminder) => (
+                    <li key={reminder}>{reminder}</li>
+                  ))}
                 </ul>
               </div>
 
