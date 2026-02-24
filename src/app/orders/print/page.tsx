@@ -74,15 +74,15 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
           <section className="mt-3">
             <h2 className="text-sm font-semibold text-text-primary">Items</h2>
             {order.items.length > 0 ? (
-              <ul className="mt-1 space-y-1 text-sm text-text-primary">
+              <ul className="mt-1 space-y-2 text-lg font-semibold leading-tight text-text-primary">
                 {order.items.map((item) => {
                   const recipeName = item.recipe?.name ?? `Recipe #${item.recipeId}`;
                   const unitPrice = parsePrice(item.unitPrice ?? item.recipe?.price ?? null);
                   const lineTotal = unitPrice * item.quantity;
                   return (
                     <li key={item.id} className="flex justify-between gap-2">
-                      <span className="truncate pr-2">
-                        {recipeName} x{item.quantity}
+                      <span className="pr-2">
+                        x{item.quantity} {recipeName}
                       </span>
                       <span className="font-mono">${lineTotal.toFixed(2)}</span>
                     </li>
