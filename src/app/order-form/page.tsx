@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getAvailableRecipes } from "@/lib/actions/recipes";
 import { createOrder } from "@/lib/actions/orders";
-import { getOrderFormAvailability } from "@/lib/actions/settings";
+import {
+  getOrderFormAvailability,
+  getRootedOrderFormAvailability,
+} from "@/lib/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +30,17 @@ type Recipe = {
   price: string | null;
 };
 
-export default function CustomerOrderFormPage() {
+type PublicOrderFormProps = {
+  channel?: "main" | "rooted_community";
+  title: string;
+  headerLines: string[];
+};
+
+export function PublicOrderForm({
+  channel = "main",
+  title,
+  headerLines,
+}: PublicOrderFormProps) {
   const [orderFormOpen, setOrderFormOpen] = useState<boolean | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +57,10 @@ export default function CustomerOrderFormPage() {
 
   useEffect(() => {
     async function fetchRecipes() {
-      const settingResult = await getOrderFormAvailability();
+      const settingResult =
+        channel === "rooted_community"
+          ? await getRootedOrderFormAvailability()
+          : await getOrderFormAvailability();
       const isOpen = settingResult.data ?? false;
       setOrderFormOpen(isOpen);
 
@@ -69,7 +85,7 @@ export default function CustomerOrderFormPage() {
       setLoading(false);
     }
     fetchRecipes();
-  }, []);
+  }, [channel]);
 
   const handleQuantityChange = (recipeId: number, quantity: string) => {
     const qty = parseInt(quantity);
@@ -114,6 +130,7 @@ export default function CustomerOrderFormPage() {
 
       const orderResult = await createOrder({
         name: `${customerName} - ${new Date().toLocaleDateString()}`,
+        channel,
         dueDate: null,
         status: "draft",
         notes: orderNotes,
@@ -251,11 +268,15 @@ export default function CustomerOrderFormPage() {
           className="mx-auto mb-6 h-auto w-full max-w-[220px]"
         />
         <h1 className="mb-2 font-serif text-4xl font-semibold text-text-primary">
-          Place Your Order
+          {title}
         </h1>
-        <p className="text-xl font-semibold text-accent">
-          Saturday, February 21st: Pickup 9am or Later
-        </p>
+        <div className="space-y-1">
+          {headerLines.map((line) => (
+            <p key={line} className="text-xl font-semibold text-accent">
+              {line}
+            </p>
+          ))}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -460,5 +481,15 @@ export default function CustomerOrderFormPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function CustomerOrderFormPage() {
+  return (
+    <PublicOrderForm
+      channel="main"
+      title="Place Your Order"
+      headerLines={["Saturday, February 21st: Pickup 9am or Later"]}
+    />
   );
 }

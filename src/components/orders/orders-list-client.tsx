@@ -19,6 +19,7 @@ import { formatDateTime } from "@/lib/utils/date";
 type OrderListItem = {
   id: number;
   name: string;
+  channel?: "main" | "rooted_community";
   status: string | null;
   createdAt: Date | null;
   items: Array<{
@@ -150,6 +151,14 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
           {orders.map((order) => {
             const status = statusConfig[order.status ?? "draft"];
             const isSelected = selectedOrderIds.includes(order.id);
+            const orderChannel =
+              order.channel ??
+              (order.name.startsWith("[Rooted Community]")
+                ? "rooted_community"
+                : "main");
+            const displayName = order.name
+              .replace(/^\[Rooted Community\]\s*/i, "")
+              .replace(/^\[Main\]\s*/i, "");
 
             return (
               <TableRow key={order.id}>
@@ -167,8 +176,15 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
                     href={`/orders/${order.id}`}
                     className="font-serif font-semibold text-text-primary transition-colors hover:text-accent"
                   >
-                    {order.name}
+                    {displayName}
                   </Link>
+                  <div className="mt-1">
+                    <Badge variant="secondary">
+                      {orderChannel === "rooted_community"
+                        ? "Rooted Community"
+                        : "Main"}
+                    </Badge>
+                  </div>
                 </TableCell>
                 <TableCell className="text-text-secondary">
                   {order.createdAt ? formatDateTime(order.createdAt) : "No date"}

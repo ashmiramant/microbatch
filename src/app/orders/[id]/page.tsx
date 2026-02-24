@@ -50,15 +50,24 @@ export default async function OrderDetailPage({
 
   const order = result.data;
   const status = statusConfig[order.status ?? "draft"];
+  const orderChannel = order.name.startsWith("[Rooted Community]")
+    ? "rooted_community"
+    : "main";
+  const displayOrderName = order.name
+    .replace(/^\[Rooted Community\]\s*/i, "")
+    .replace(/^\[Main\]\s*/i, "");
   const totalQuantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
   const confirmationEmailSentAt = getConfirmationEmailSentAt(order.notes);
 
   return (
     <div>
       <PageHeader
-        title={order.name}
+        title={displayOrderName}
         action={
           <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="text-sm px-3 py-1">
+              {orderChannel === "rooted_community" ? "Rooted Community" : "Main"}
+            </Badge>
             <Badge variant={status.variant} className="text-sm px-3 py-1">
               {status.label}
             </Badge>

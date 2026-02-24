@@ -9,16 +9,31 @@ import { OrdersListClient } from "@/components/orders/orders-list-client";
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ view?: string }>;
+  searchParams?: Promise<{ view?: string; channel?: string }>;
 }) {
   await requireAuth();
   const result = await getOrders();
   const allOrders = result.success ? result.data ?? [] : [];
   const params = searchParams ? await searchParams : undefined;
   const view = params?.view === "archived" ? "archived" : "active";
-  const orders = allOrders.filter((order) =>
-    view === "archived" ? order.status === "archived" : order.status !== "archived"
-  );
+  const channel =
+    params?.channel === "rooted_community"
+      ? "rooted_community"
+      : params?.channel === "main"
+        ? "main"
+        : "all";
+
+  const orders = allOrders
+    .map((order) => {
+      const orderChannel = order.name.startsWith("[Rooted Community]")
+        ? ("rooted_community" as const)
+        : ("main" as const);
+      return { ...order, channel: orderChannel };
+    })
+    .filter((order) =>
+      view === "archived" ? order.status === "archived" : order.status !== "archived"
+    )
+    .filter((order) => (channel === "all" ? true : order.channel === channel));
   const itemTotals = orders.reduce<Record<string, number>>((acc, order) => {
     for (const item of order.items ?? []) {
       const recipeName = item.recipe?.name ?? `Recipe #${item.recipeId}`;
@@ -42,26 +57,46 @@ export default async function OrdersPage({
 
       <div className="mb-5 flex gap-2">
         <Button asChild variant={view === "active" ? "default" : "outline"} size="sm">
-          <Link href="/orders">Active Orders</Link>
+          <Link href={`/orders?channel=${channel}`}>Active Orders</Link>
         </Button>
         <Button
           asChild
           variant={view === "archived" ? "default" : "outline"}
           size="sm"
         >
-          <Link href="/orders?view=archived">Archived Orders</Link>
+          <Link href={`/orders?view=archived&channel=${channel}`}>Archived Orders</Link>
+        </Button>
+      </div>
+
+      <div className="mb-5 flex gap-2">
+        <Button asChild variant={channel === "all" ? "default" : "outline"} size="sm">
+          <Link href={`/orders?view=${view}`}>All Channels</Link>
+        </Button>
+        <Button asChild variant={channel === "main" ? "default" : "outline"} size="sm">
+          <Link href={`/orders?view=${view}&channel=main`}>Main Orders</Link>
+        </Button>
+        <Button
+          asChild
+          variant={channel === "rooted_community" ? "default" : "outline"}
+          size="sm"
+        >
+          <Link href={`/orders?view=${view}&channel=rooted_community`}>
+            Rooted Community Orders
+          </Link>
         </Button>
       </div>
 
       {orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface px-6 py-16 text-center">
-          <h3 className="font-serif text-xl font-semibold text-text-primary">
+            <h3 className="font-serif text-xl font-semibold text-text-primary">
             {view === "archived" ? "No archived orders yet" : "No orders yet"}
           </h3>
           <p className="mt-2 max-w-md text-sm text-text-secondary">
             {view === "archived"
               ? "Archived orders will show up here."
-              : "Create your first order to start planning production. Select recipes, set quantities, and generate a production plan in minutes."}
+                : channel === "rooted_community"
+                  ? "Rooted Community orders will appear here after customers place them."
+                  : "Create your first order to start planning production. Select recipes, set quantities, and generate a production plan in minutes."}
           </p>
           {view !== "archived" ? (
             <Button asChild className="mt-6">

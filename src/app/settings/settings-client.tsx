@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import {
   getOrderFormAvailability,
+  getRootedOrderFormAvailability,
+  setRootedOrderFormAvailability,
   setOrderFormAvailability,
 } from "@/lib/actions/settings";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,9 @@ import { cn } from "@/lib/utils";
 export function SettingsClient() {
   const [isPending, startTransition] = useTransition();
   const [orderFormOpen, setOrderFormOpen] = useState<boolean | null>(null);
+  const [rootedOrderFormOpen, setRootedOrderFormOpen] = useState<boolean | null>(
+    null
+  );
   const [orderFormMessage, setOrderFormMessage] = useState("");
   const [unitSystem, setUnitSystem] = useState<"metric" | "imperial">("metric");
   const [defaultTemplate, setDefaultTemplate] = useState("standard");
@@ -38,6 +43,12 @@ export function SettingsClient() {
       const result = await getOrderFormAvailability();
       setOrderFormOpen(result.data ?? false);
       if (!result.success) {
+        setOrderFormMessage("Could not load current status. You can still try again.");
+      }
+
+      const rootedResult = await getRootedOrderFormAvailability();
+      setRootedOrderFormOpen(rootedResult.data ?? false);
+      if (!rootedResult.success) {
         setOrderFormMessage("Could not load current status. You can still try again.");
       }
     });
@@ -56,6 +67,23 @@ export function SettingsClient() {
         nextValue
           ? "Order form is now ON. Customers can submit new orders."
           : "Order form is now OFF. Customers will see the closed message."
+      );
+    });
+  }
+
+  function updateRootedOrderFormStatus(nextValue: boolean) {
+    setOrderFormMessage("");
+    startTransition(async () => {
+      const result = await setRootedOrderFormAvailability(nextValue);
+      if (!result.success) {
+        setOrderFormMessage("Could not save right now. Please try again.");
+        return;
+      }
+      setRootedOrderFormOpen(nextValue);
+      setOrderFormMessage(
+        nextValue
+          ? "Rooted Community form is now ON."
+          : "Rooted Community form is now OFF."
       );
     });
   }
@@ -98,6 +126,42 @@ export function SettingsClient() {
           {orderFormMessage ? (
             <p className="mt-2 text-sm text-text-secondary">{orderFormMessage}</p>
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rooted Community Order Form</CardTitle>
+          <CardDescription>
+            Control availability for the Rooted Community order page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              onClick={() => updateRootedOrderFormStatus(true)}
+              disabled={isPending || rootedOrderFormOpen === true}
+            >
+              Turn Rooted Form On
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => updateRootedOrderFormStatus(false)}
+              disabled={isPending || rootedOrderFormOpen === false}
+            >
+              Turn Rooted Form Off
+            </Button>
+            <Badge variant={rootedOrderFormOpen ? "success" : "secondary"}>
+              {rootedOrderFormOpen ? "Currently ON" : "Currently OFF"}
+            </Badge>
+          </div>
+          <p className="mt-3 text-sm text-text-secondary">
+            {rootedOrderFormOpen
+              ? "Customers can place Rooted Community orders now."
+              : "Customers will see the Rooted Community closed message."}
+          </p>
         </CardContent>
       </Card>
 

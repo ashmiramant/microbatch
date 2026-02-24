@@ -22,6 +22,11 @@ const navItems = [
   { label: "Recipes", href: "/recipes", icon: ChefHat },
   { label: "Orders", href: "/orders", icon: ShoppingCart },
   { label: "Order Form", href: "/order-form", icon: ClipboardList },
+  {
+    label: "Rooted Order Form",
+    href: "/rooted-community-order-form",
+    icon: ClipboardList,
+  },
   { label: "Production", href: "/production", icon: Factory },
   { label: "Pantry", href: "/pantry", icon: Warehouse },
   { label: "Settings", href: "/settings", icon: Settings },

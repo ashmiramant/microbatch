@@ -17,6 +17,7 @@ type OrderItemInput = {
 
 type CreateOrderInput = {
   name: string;
+  channel?: "main" | "rooted_community";
   dueDate?: Date | string | null;
   status?:
     | "draft"
@@ -132,10 +133,15 @@ function buildOrderNotes(details: {
 export async function createOrder(data: CreateOrderInput) {
   try {
     const result = await db.transaction(async (tx) => {
+      const channelPrefix =
+        data.channel === "rooted_community" ? "[Rooted Community] " : "";
+
       const [order] = await tx
         .insert(orders)
         .values({
-          name: data.name,
+          name: data.name.startsWith("[")
+            ? data.name
+            : `${channelPrefix}${data.name}`,
           dueDate: data.dueDate ? new Date(data.dueDate) : null,
           status: data.status,
           notes: data.notes,
@@ -442,10 +448,13 @@ export async function updatePublicOrderFromLink(
     }
 
     await db.transaction(async (tx) => {
+      const rootedPrefix = existingOrder.name.startsWith("[Rooted Community]")
+        ? "[Rooted Community] "
+        : "";
       await tx
         .update(orders)
         .set({
-          name: `${data.customerName} - ${new Date(
+          name: `${rootedPrefix}${data.customerName} - ${new Date(
             existingOrder.createdAt ?? new Date()
           ).toLocaleDateString("en-US")}`,
           notes: buildOrderNotes({

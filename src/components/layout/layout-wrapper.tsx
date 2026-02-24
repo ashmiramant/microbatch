@@ -7,7 +7,12 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
   // Pages that don't need the sidebar
-  const noSidebarPages = ["/login", "/order-form", "/orders/print"];
+  const noSidebarPages = [
+    "/login",
+    "/order-form",
+    "/rooted-community-order-form",
+    "/orders/print",
+  ];
   const showSidebar = !noSidebarPages.some(page => pathname.startsWith(page));
 
   if (showSidebar) {
