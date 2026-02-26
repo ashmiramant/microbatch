@@ -28,6 +28,7 @@ type Recipe = {
   imageUrl: string | null;
   description: string | null;
   price: string | null;
+  orderFlavorOptions: string[] | null;
 };
 
 type PublicOrderFormProps = {
@@ -45,6 +46,9 @@ export function PublicOrderForm({
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [flavorSelections, setFlavorSelections] = useState<
+    Record<number, Record<string, number>>
+  >({});
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -79,6 +83,11 @@ export function PublicOrderForm({
             imageUrl: r.imageUrl,
             description: r.description,
             price: r.price,
+            orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
+              ? r.orderFlavorOptions
+                  .map((option) => String(option).trim())
+                  .filter(Boolean)
+              : null,
           }))
         );
       }
@@ -98,17 +107,60 @@ export function PublicOrderForm({
       }
       return next;
     });
+    if (qty <= 0 || isNaN(qty)) {
+      setFlavorSelections((prev) => {
+        const next = { ...prev };
+        delete next[recipeId];
+        return next;
+      });
+    }
+  };
+
+  const handleFlavorQuantityChange = (
+    recipeId: number,
+    flavor: string,
+    quantity: string
+  ) => {
+    const qty = parseInt(quantity, 10);
+    setFlavorSelections((prev) => {
+      const next = { ...prev };
+      const recipeFlavors = { ...(next[recipeId] ?? {}) };
+      if (isNaN(qty) || qty <= 0) {
+        delete recipeFlavors[flavor];
+      } else {
+        recipeFlavors[flavor] = qty;
+      }
+
+      if (Object.keys(recipeFlavors).length === 0) {
+        delete next[recipeId];
+      } else {
+        next[recipeId] = recipeFlavors;
+      }
+
+      return next;
+    });
   };
 
   const selectedItems = Object.entries(quantities)
     .filter(([, qty]) => qty > 0)
     .map(([id, qty]) => {
       const recipe = recipes.find((r) => r.id === Number(id));
+      const flavorOptions = recipe?.orderFlavorOptions ?? [];
+      const flavorCounts = flavorSelections[Number(id)] ?? {};
+      const flavorSummary = flavorOptions
+        .map((option) => ({ option, count: flavorCounts[option] ?? 0 }))
+        .filter((entry) => entry.count > 0)
+        .map((entry) => `${entry.option} x${entry.count}`)
+        .join(", ");
       return {
         recipeId: Number(id),
         recipeName: recipe?.name ?? "Unknown",
         quantity: qty,
         price: recipe?.price ? parseFloat(recipe.price) : 0,
+        flavorOptions,
+        flavorCounts,
+        flavorSummary,
+        notes: flavorSummary ? `Flavors: ${flavorSummary}` : null,
       };
     });
 
@@ -136,6 +188,20 @@ export function PublicOrderForm({
       return;
     }
 
+    for (const item of selectedItems) {
+      if (item.flavorOptions.length === 0) continue;
+      const totalFlavorCount = item.flavorOptions.reduce(
+        (sum, option) => sum + (item.flavorCounts[option] ?? 0),
+        0
+      );
+      if (totalFlavorCount !== item.quantity) {
+        alert(
+          `${item.recipeName}: please assign flavors so the total matches quantity (${item.quantity}).`
+        );
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const editToken = crypto.randomUUID();
@@ -150,6 +216,7 @@ export function PublicOrderForm({
         items: selectedItems.map((item) => ({
           recipeId: item.recipeId,
           quantity: item.quantity,
+          notes: item.notes,
         })),
       });
 
@@ -160,6 +227,7 @@ export function PublicOrderForm({
         setOrderSubmitted(true);
         // Reset form
         setQuantities({});
+        setFlavorSelections({});
         setCustomerName("");
         setCustomerEmail("");
         setCustomerPhone("");
@@ -185,7 +253,7 @@ export function PublicOrderForm({
           Order Received!
         </h1>
         <p className="mb-8 text-lg text-text-secondary">
-          Thank you for your order! You'll hear from me within 24 hours to confirm.
+          Thank you for your order! You&apos;ll hear from me within 24 hours to confirm.
         </p>
         <div className="mb-8 rounded-lg border border-border bg-surface p-4 text-left">
           <p className="text-base font-semibold text-text-primary">
@@ -245,7 +313,7 @@ export function PublicOrderForm({
             </p>
           </div>
           <p className="mt-6 text-sm text-text-secondary">
-            Please check back soon when next week's order form reopens.
+            Please check back soon when next week&apos;s order form reopens.
           </p>
         </Card>
       </div>
@@ -350,6 +418,65 @@ export function PublicOrderForm({
                       </SelectContent>
                     </Select>
                   </div>
+                  {(recipe.orderFlavorOptions?.length ?? 0) > 0 &&
+                  (quantities[recipe.id] ?? 0) > 0 ? (
+                    <div className="mt-3 space-y-2 rounded-lg border border-border bg-background p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        Flavor Split
+                      </p>
+                      <div className="space-y-2">
+                        {recipe.orderFlavorOptions!.map((flavor) => (
+                          <div
+                            key={`${recipe.id}-${flavor}`}
+                            className="flex items-center justify-between gap-2"
+                          >
+                            <Label
+                              htmlFor={`flavor-${recipe.id}-${flavor}`}
+                              className="text-sm text-text-primary"
+                            >
+                              {flavor}
+                            </Label>
+                            <Select
+                              value={
+                                String(
+                                  flavorSelections[recipe.id]?.[flavor] ?? 0
+                                )
+                              }
+                              onValueChange={(value) =>
+                                handleFlavorQuantityChange(recipe.id, flavor, value)
+                              }
+                            >
+                              <SelectTrigger
+                                id={`flavor-${recipe.id}-${flavor}`}
+                                className="w-24"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from(
+                                  { length: (quantities[recipe.id] ?? 0) + 1 },
+                                  (_, i) => i
+                                ).map((value) => (
+                                  <SelectItem key={value} value={String(value)}>
+                                    {value}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-text-secondary">
+                        Assigned:{" "}
+                        {recipe.orderFlavorOptions!.reduce(
+                          (sum, flavor) =>
+                            sum + (flavorSelections[recipe.id]?.[flavor] ?? 0),
+                          0
+                        )}{" "}
+                        / {quantities[recipe.id]}
+                      </p>
+                    </div>
+                  ) : null}
                 </Card>
               ))}
             </div>
@@ -438,9 +565,16 @@ export function PublicOrderForm({
                         key={item.recipeId}
                         className="flex justify-between text-sm"
                       >
-                        <span className="text-text-secondary">
-                          {item.recipeName} × {item.quantity}
-                        </span>
+                        <div className="text-text-secondary">
+                          <span>
+                            {item.recipeName} × {item.quantity}
+                          </span>
+                          {item.flavorSummary ? (
+                            <p className="text-xs text-text-secondary">
+                              {item.flavorSummary}
+                            </p>
+                          ) : null}
+                        </div>
                         <span className="font-medium text-text-primary">
                           ${(item.price * item.quantity).toFixed(2)}
                         </span>

@@ -26,6 +26,7 @@ type Recipe = {
   imageUrl: string | null;
   description: string | null;
   price: string | null;
+  orderFlavorOptions: string[] | null;
 };
 
 export default function EditOrderFromLinkPage({
@@ -35,7 +36,11 @@ export default function EditOrderFromLinkPage({
 }) {
   const { id } = use(params);
   const orderId = Number(id);
-  const [token, setToken] = useState("");
+  const [token] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const search = new URLSearchParams(window.location.search);
+    return search.get("token") ?? "";
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -43,15 +48,13 @@ export default function EditOrderFromLinkPage({
 
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [flavorSelections, setFlavorSelections] = useState<
+    Record<number, Record<string, number>>
+  >({});
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [notes, setNotes] = useState("");
-
-  useEffect(() => {
-    const search = new URLSearchParams(window.location.search);
-    setToken(search.get("token") ?? "");
-  }, []);
 
   useEffect(() => {
     if (!token || !Number.isFinite(orderId)) return;
@@ -79,6 +82,11 @@ export default function EditOrderFromLinkPage({
             imageUrl: r.imageUrl,
             description: r.description,
             price: r.price,
+            orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
+              ? r.orderFlavorOptions
+                  .map((option) => String(option).trim())
+                  .filter(Boolean)
+              : null,
           }))
         );
       }
@@ -87,12 +95,34 @@ export default function EditOrderFromLinkPage({
       setCustomerEmail(orderResult.data.customerEmail ?? "");
       setCustomerPhone(orderResult.data.customerPhone ?? "");
       setNotes(orderResult.data.customerNotes ?? "");
-      setQuantities(
-        orderResult.data.items.reduce<Record<number, number>>((acc, item) => {
+      const nextQuantities = orderResult.data.items.reduce<Record<number, number>>(
+        (acc, item) => {
           if (item.quantity > 0) acc[item.recipeId] = item.quantity;
           return acc;
-        }, {})
+        },
+        {}
       );
+      setQuantities(nextQuantities);
+
+      const nextFlavorSelections = orderResult.data.items.reduce<
+        Record<number, Record<string, number>>
+      >((acc, item) => {
+        const note = item.notes ?? "";
+        if (!note.toLowerCase().startsWith("flavors:")) return acc;
+        const summary = note.replace(/^flavors:\s*/i, "").trim();
+        if (!summary) return acc;
+        const parsed: Record<string, number> = {};
+        for (const segment of summary.split(",")) {
+          const match = segment.trim().match(/^(.*?)\s+x(\d+)$/i);
+          if (!match) continue;
+          parsed[match[1].trim()] = parseInt(match[2], 10);
+        }
+        if (Object.keys(parsed).length > 0) {
+          acc[item.recipeId] = parsed;
+        }
+        return acc;
+      }, {});
+      setFlavorSelections(nextFlavorSelections);
       setLoading(false);
     }
 
@@ -105,14 +135,25 @@ export default function EditOrderFromLinkPage({
         .filter(([, qty]) => qty > 0)
         .map(([recipeId, qty]) => {
           const recipe = recipes.find((r) => r.id === Number(recipeId));
+          const flavorOptions = recipe?.orderFlavorOptions ?? [];
+          const flavorCounts = flavorSelections[Number(recipeId)] ?? {};
+          const flavorSummary = flavorOptions
+            .map((option) => ({ option, count: flavorCounts[option] ?? 0 }))
+            .filter((entry) => entry.count > 0)
+            .map((entry) => `${entry.option} x${entry.count}`)
+            .join(", ");
           return {
             recipeId: Number(recipeId),
             recipeName: recipe?.name ?? "Unknown",
             quantity: qty,
             price: recipe?.price ? parseFloat(recipe.price) : 0,
+            flavorOptions,
+            flavorCounts,
+            flavorSummary,
+            notes: flavorSummary ? `Flavors: ${flavorSummary}` : null,
           };
         }),
-    [quantities, recipes]
+    [quantities, recipes, flavorSelections]
   );
 
   const totalPrice = selectedItems.reduce(
@@ -131,6 +172,36 @@ export default function EditOrderFromLinkPage({
       }
       return next;
     });
+    if (isNaN(qty) || qty <= 0) {
+      setFlavorSelections((prev) => {
+        const next = { ...prev };
+        delete next[recipeId];
+        return next;
+      });
+    }
+  }
+
+  function handleFlavorQuantityChange(
+    recipeId: number,
+    flavor: string,
+    quantity: string
+  ) {
+    const qty = parseInt(quantity, 10);
+    setFlavorSelections((prev) => {
+      const next = { ...prev };
+      const recipeFlavors = { ...(next[recipeId] ?? {}) };
+      if (isNaN(qty) || qty <= 0) {
+        delete recipeFlavors[flavor];
+      } else {
+        recipeFlavors[flavor] = qty;
+      }
+      if (Object.keys(recipeFlavors).length === 0) {
+        delete next[recipeId];
+      } else {
+        next[recipeId] = recipeFlavors;
+      }
+      return next;
+    });
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -143,6 +214,20 @@ export default function EditOrderFromLinkPage({
       return;
     }
 
+    for (const item of selectedItems) {
+      if (item.flavorOptions.length === 0) continue;
+      const totalFlavorCount = item.flavorOptions.reduce(
+        (sum, option) => sum + (item.flavorCounts[option] ?? 0),
+        0
+      );
+      if (totalFlavorCount !== item.quantity) {
+        setError(
+          `${item.recipeName}: flavor counts must add up to ${item.quantity}.`
+        );
+        return;
+      }
+    }
+
     setSaving(true);
     const result = await updatePublicOrderFromLink(orderId, token, {
       customerName,
@@ -152,6 +237,7 @@ export default function EditOrderFromLinkPage({
       items: selectedItems.map((item) => ({
         recipeId: item.recipeId,
         quantity: item.quantity,
+        notes: item.notes,
       })),
     });
     setSaving(false);
@@ -233,6 +319,66 @@ export default function EditOrderFromLinkPage({
                       {recipe.description}
                     </p>
                   ) : null}
+                          {(recipe.orderFlavorOptions?.length ?? 0) > 0 &&
+                          (quantities[recipe.id] ?? 0) > 0 ? (
+                            <div className="mb-3 space-y-2 rounded-lg border border-border bg-background p-3">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                                Flavor Split
+                              </p>
+                              {recipe.orderFlavorOptions!.map((flavor) => (
+                                <div
+                                  key={`${recipe.id}-${flavor}`}
+                                  className="flex items-center justify-between gap-2"
+                                >
+                                  <Label
+                                    htmlFor={`edit-flavor-${recipe.id}-${flavor}`}
+                                    className="text-sm text-text-primary"
+                                  >
+                                    {flavor}
+                                  </Label>
+                                  <Select
+                                    value={String(
+                                      flavorSelections[recipe.id]?.[flavor] ?? 0
+                                    )}
+                                    onValueChange={(value) =>
+                                      handleFlavorQuantityChange(
+                                        recipe.id,
+                                        flavor,
+                                        value
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger
+                                      id={`edit-flavor-${recipe.id}-${flavor}`}
+                                      className="w-24"
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from(
+                                        { length: (quantities[recipe.id] ?? 0) + 1 },
+                                        (_, i) => i
+                                      ).map((value) => (
+                                        <SelectItem key={value} value={String(value)}>
+                                          {value}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              ))}
+                              <p className="text-xs text-text-secondary">
+                                Assigned:{" "}
+                                {recipe.orderFlavorOptions!.reduce(
+                                  (sum, flavor) =>
+                                    sum +
+                                    (flavorSelections[recipe.id]?.[flavor] ?? 0),
+                                  0
+                                )}{" "}
+                                / {quantities[recipe.id]}
+                              </p>
+                            </div>
+                          ) : null}
                   <Label htmlFor={`edit-quantity-${recipe.id}`} className="text-sm text-text-secondary">
                     Quantity
                   </Label>
@@ -312,9 +458,16 @@ export default function EditOrderFromLinkPage({
                   <div className="space-y-2">
                     {selectedItems.map((item) => (
                       <div key={item.recipeId} className="flex justify-between text-sm">
-                        <span className="text-text-secondary">
-                          {item.recipeName} × {item.quantity}
-                        </span>
+                        <div className="text-text-secondary">
+                          <span>
+                            {item.recipeName} × {item.quantity}
+                          </span>
+                          {item.flavorSummary ? (
+                            <p className="text-xs text-text-secondary">
+                              {item.flavorSummary}
+                            </p>
+                          ) : null}
+                        </div>
                         <span className="font-medium text-text-primary">
                           ${(item.price * item.quantity).toFixed(2)}
                         </span>

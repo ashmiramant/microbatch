@@ -262,17 +262,17 @@ function RecipeIngredientsSection({
     sectionLabel: string | null;
   }>;
 }) {
-  let currentSection: string | null = null;
+  const ingredientsWithSectionHeader = ingredients.map((ing, index) => {
+    const previousSection = index > 0 ? ingredients[index - 1]?.sectionLabel : null;
+    const showSectionHeader = Boolean(
+      ing.sectionLabel && ing.sectionLabel !== previousSection
+    );
+    return { ing, showSectionHeader };
+  });
 
   return (
     <div className="space-y-1">
-      {ingredients.map((ing) => {
-        const showSectionHeader =
-          ing.sectionLabel && ing.sectionLabel !== currentSection;
-        if (ing.sectionLabel) {
-          currentSection = ing.sectionLabel;
-        }
-
+      {ingredientsWithSectionHeader.map(({ ing, showSectionHeader }) => {
         return (
           <div key={ing.id}>
             {showSectionHeader && (

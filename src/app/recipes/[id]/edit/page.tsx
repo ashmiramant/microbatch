@@ -75,6 +75,7 @@ export default function EditRecipePage({
   const [isSourdough, setIsSourdough] = useState(false);
   const [availableForMainOrder, setAvailableForMainOrder] = useState(false);
   const [availableForRootedOrder, setAvailableForRootedOrder] = useState(false);
+  const [orderFlavorOptionsText, setOrderFlavorOptionsText] = useState("");
   const [price, setPrice] = useState("");
   const [yieldQuantity, setYieldQuantity] = useState("");
   const [yieldUnit, setYieldUnit] = useState("");
@@ -111,6 +112,11 @@ export default function EditRecipePage({
         r.availableForMainOrder ?? r.availableForOrder ?? false
       );
       setAvailableForRootedOrder(r.availableForRootedOrder || false);
+      setOrderFlavorOptionsText(
+        Array.isArray(r.orderFlavorOptions)
+          ? r.orderFlavorOptions.map((option) => String(option)).join("\n")
+          : ""
+      );
       setPrice(r.price || "");
       setYieldQuantity(r.yieldQuantity || "");
       setYieldUnit(r.yieldUnit || "");
@@ -201,6 +207,10 @@ export default function EditRecipePage({
           : null;
 
       const result = await updateRecipe(recipeId, {
+        orderFlavorOptions: orderFlavorOptionsText
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean),
         name: name.trim(),
         description: description.trim() || null,
         category: category || null,
@@ -403,6 +413,23 @@ export default function EditRecipePage({
                 Show on Rooted Community Order Form
               </Label>
             </div>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
+            <Label htmlFor="order-flavor-options">
+              Flavor options (one per line, optional)
+            </Label>
+            <Textarea
+              id="order-flavor-options"
+              value={orderFlavorOptionsText}
+              onChange={(e) => setOrderFlavorOptionsText(e.target.value)}
+              placeholder={"Plain\nEverything\nAsiago"}
+              rows={4}
+            />
+            <p className="text-xs text-text-secondary">
+              When set, customers must split the item quantity across these
+              flavor options.
+            </p>
           </div>
         </section>
 

@@ -104,7 +104,14 @@ export default async function OrderDetailPage({
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-serif font-medium">
-                            {item.recipe?.name ?? `Recipe #${item.recipeId}`}
+                            <div>
+                              <p>{item.recipe?.name ?? `Recipe #${item.recipeId}`}</p>
+                              {item.notes?.toLowerCase().startsWith("flavors:") ? (
+                                <p className="mt-1 text-xs font-normal text-text-secondary">
+                                  {item.notes.replace(/^flavors:\s*/i, "")}
+                                </p>
+                              ) : null}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right font-mono">
                             {item.quantity}

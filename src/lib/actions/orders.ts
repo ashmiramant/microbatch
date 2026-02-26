@@ -416,6 +416,7 @@ export async function getPublicOrderForEdit(id: number, token: string) {
           recipeId: item.recipeId,
           quantity: item.quantity,
           recipeName: item.recipe?.name ?? `Item #${item.recipeId}`,
+          notes: item.notes,
         })),
       },
     };

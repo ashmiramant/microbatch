@@ -82,7 +82,12 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
                   return (
                     <li key={item.id} className="flex justify-between gap-2">
                       <span className="pr-2">
-                        x{item.quantity} {recipeName}
+                        <span>x{item.quantity} {recipeName}</span>
+                        {item.notes?.toLowerCase().startsWith("flavors:") ? (
+                          <span className="block text-sm font-normal text-text-secondary">
+                            {item.notes.replace(/^flavors:\s*/i, "")}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="font-mono">${lineTotal.toFixed(2)}</span>
                     </li>

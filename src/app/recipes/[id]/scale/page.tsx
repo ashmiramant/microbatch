@@ -348,7 +348,7 @@ export default function ScalePage({
 
                   {recipe?.defaultPanId && !recipeDefaultPan ? (
                     <div className="rounded-md border border-dashed border-border p-3 text-sm text-text-secondary">
-                      The recipe's default pan is missing a usable volume. Please
+                      The recipe&apos;s default pan is missing a usable volume. Please
                       pick an Original Pan below.
                     </div>
                   ) : null}

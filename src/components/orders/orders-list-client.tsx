@@ -25,6 +25,7 @@ type OrderListItem = {
   items: Array<{
     recipeId: number;
     quantity: number;
+    notes?: string | null;
     recipe: {
       name: string;
     } | null;
@@ -196,7 +197,12 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
                         .map((item) => {
                           const recipeName =
                             item.recipe?.name ?? `Recipe #${item.recipeId}`;
-                          return `${recipeName} x${item.quantity}`;
+                          const flavorSummary = item.notes?.toLowerCase().startsWith("flavors:")
+                            ? item.notes.replace(/^flavors:\s*/i, "")
+                            : "";
+                          return flavorSummary
+                            ? `${recipeName} x${item.quantity} (${flavorSummary})`
+                            : `${recipeName} x${item.quantity}`;
                         })
                         .join(", ")}
                     </div>

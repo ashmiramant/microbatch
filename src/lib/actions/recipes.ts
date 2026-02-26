@@ -54,6 +54,7 @@ type CreateRecipeInput = {
   availableForOrder?: boolean | null;
   availableForMainOrder?: boolean | null;
   availableForRootedOrder?: boolean | null;
+  orderFlavorOptions?: string[] | null;
   defaultPanId?: number | null;
   notes?: string | null;
   rawLdJson?: unknown;
@@ -108,6 +109,7 @@ export async function createRecipe(data: CreateRecipeInput) {
           availableForOrder: data.availableForOrder,
           availableForMainOrder: data.availableForMainOrder,
           availableForRootedOrder: data.availableForRootedOrder,
+          orderFlavorOptions: data.orderFlavorOptions,
           defaultPanId: data.defaultPanId,
           notes: data.notes,
           rawLdJson: data.rawLdJson,
@@ -188,6 +190,9 @@ export async function updateRecipe(id: number, data: UpdateRecipeInput) {
       }
       if (recipeFields.availableForRootedOrder !== undefined) {
         updateValues.availableForRootedOrder = recipeFields.availableForRootedOrder;
+      }
+      if (recipeFields.orderFlavorOptions !== undefined) {
+        updateValues.orderFlavorOptions = recipeFields.orderFlavorOptions;
       }
       if (recipeFields.defaultPanId !== undefined) updateValues.defaultPanId = recipeFields.defaultPanId;
       if (recipeFields.notes !== undefined) updateValues.notes = recipeFields.notes;
@@ -358,9 +363,19 @@ async function ensureRecipeOrderFormColumns() {
     ADD COLUMN IF NOT EXISTS available_for_rooted_order boolean DEFAULT false
   `);
   await db.execute(sql`
+    ALTER TABLE recipes
+    ADD COLUMN IF NOT EXISTS order_flavor_options jsonb
+  `);
+  await db.execute(sql`
     UPDATE recipes
     SET available_for_main_order = COALESCE(available_for_main_order, available_for_order)
     WHERE available_for_main_order IS DISTINCT FROM COALESCE(available_for_order, false)
+  `);
+  await db.execute(sql`
+    UPDATE recipes
+    SET order_flavor_options = '["Plain","Everything","Asiago"]'::jsonb
+    WHERE order_flavor_options IS NULL
+      AND lower(name) LIKE '%bagel%'
   `);
 }
 

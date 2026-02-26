@@ -34,6 +34,7 @@ export const recipes = pgTable("recipes", {
   availableForOrder: boolean("available_for_order").default(false),
   availableForMainOrder: boolean("available_for_main_order").default(false),
   availableForRootedOrder: boolean("available_for_rooted_order").default(false),
+  orderFlavorOptions: jsonb("order_flavor_options"),
   defaultPanId: integer("default_pan_id").references(() => pans.id),
   notes: text("notes"),
   rawLdJson: jsonb("raw_ld_json"),
