@@ -172,13 +172,32 @@ export default function EditOrderFromLinkPage({
       }
       return next;
     });
-    if (isNaN(qty) || qty <= 0) {
-      setFlavorSelections((prev) => {
-        const next = { ...prev };
+    setFlavorSelections((prev) => {
+      const next = { ...prev };
+      if (isNaN(qty) || qty <= 0) {
         delete next[recipeId];
         return next;
-      });
-    }
+      }
+      const currentFlavors = next[recipeId];
+      if (!currentFlavors) return next;
+
+      const clampedFlavors: Record<string, number> = {};
+      let remaining = qty;
+      for (const [flavor, count] of Object.entries(currentFlavors)) {
+        const clampedCount = Math.max(0, Math.min(count, remaining));
+        if (clampedCount > 0) {
+          clampedFlavors[flavor] = clampedCount;
+          remaining -= clampedCount;
+        }
+      }
+
+      if (Object.keys(clampedFlavors).length === 0) {
+        delete next[recipeId];
+      } else {
+        next[recipeId] = clampedFlavors;
+      }
+      return next;
+    });
   }
 
   function handleFlavorQuantityChange(
@@ -187,13 +206,21 @@ export default function EditOrderFromLinkPage({
     quantity: string
   ) {
     const qty = parseInt(quantity, 10);
+    const recipeQuantity = quantities[recipeId] ?? 0;
     setFlavorSelections((prev) => {
       const next = { ...prev };
       const recipeFlavors = { ...(next[recipeId] ?? {}) };
-      if (isNaN(qty) || qty <= 0) {
+      const totalOtherFlavors = Object.entries(recipeFlavors).reduce(
+        (sum, [selectedFlavor, selectedQty]) =>
+          selectedFlavor === flavor ? sum : sum + selectedQty,
+        0
+      );
+      const maxAllowedForFlavor = Math.max(0, recipeQuantity - totalOtherFlavors);
+
+      if (isNaN(qty) || qty <= 0 || maxAllowedForFlavor === 0) {
         delete recipeFlavors[flavor];
       } else {
-        recipeFlavors[flavor] = qty;
+        recipeFlavors[flavor] = Math.min(qty, maxAllowedForFlavor);
       }
       if (Object.keys(recipeFlavors).length === 0) {
         delete next[recipeId];
@@ -326,6 +353,25 @@ export default function EditOrderFromLinkPage({
                                 Flavor Split
                               </p>
                               {recipe.orderFlavorOptions!.map((flavor) => (
+                                (() => {
+                                  const selectedQty = quantities[recipe.id] ?? 0;
+                                  const currentFlavorQty =
+                                    flavorSelections[recipe.id]?.[flavor] ?? 0;
+                                  const assignedOtherFlavors =
+                                    recipe.orderFlavorOptions!.reduce(
+                                      (sum, option) =>
+                                        option === flavor
+                                          ? sum
+                                          : sum +
+                                            (flavorSelections[recipe.id]?.[option] ?? 0),
+                                      0
+                                    );
+                                  const maxFlavorQty = Math.max(
+                                    0,
+                                    selectedQty - assignedOtherFlavors
+                                  );
+
+                                  return (
                                 <div
                                   key={`${recipe.id}-${flavor}`}
                                   className="flex items-center justify-between gap-2"
@@ -338,7 +384,7 @@ export default function EditOrderFromLinkPage({
                                   </Label>
                                   <Select
                                     value={String(
-                                      flavorSelections[recipe.id]?.[flavor] ?? 0
+                                      Math.min(currentFlavorQty, maxFlavorQty)
                                     )}
                                     onValueChange={(value) =>
                                       handleFlavorQuantityChange(
@@ -356,7 +402,7 @@ export default function EditOrderFromLinkPage({
                                     </SelectTrigger>
                                     <SelectContent>
                                       {Array.from(
-                                        { length: (quantities[recipe.id] ?? 0) + 1 },
+                                        { length: maxFlavorQty + 1 },
                                         (_, i) => i
                                       ).map((value) => (
                                         <SelectItem key={value} value={String(value)}>
@@ -366,6 +412,8 @@ export default function EditOrderFromLinkPage({
                                     </SelectContent>
                                   </Select>
                                 </div>
+                                  );
+                                })()
                               ))}
                               <p className="text-xs text-text-secondary">
                                 Assigned:{" "}

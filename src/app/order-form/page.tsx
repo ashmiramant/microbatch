@@ -107,13 +107,33 @@ export function PublicOrderForm({
       }
       return next;
     });
-    if (qty <= 0 || isNaN(qty)) {
-      setFlavorSelections((prev) => {
-        const next = { ...prev };
+    setFlavorSelections((prev) => {
+      const next = { ...prev };
+      if (qty <= 0 || isNaN(qty)) {
         delete next[recipeId];
         return next;
-      });
-    }
+      }
+      const currentFlavors = next[recipeId];
+      if (!currentFlavors) return next;
+
+      const clampedFlavors: Record<string, number> = {};
+      let remaining = qty;
+      for (const [flavor, count] of Object.entries(currentFlavors)) {
+        const clampedCount = Math.max(0, Math.min(count, remaining));
+        if (clampedCount > 0) {
+          clampedFlavors[flavor] = clampedCount;
+          remaining -= clampedCount;
+        }
+      }
+
+      if (Object.keys(clampedFlavors).length === 0) {
+        delete next[recipeId];
+      } else {
+        next[recipeId] = clampedFlavors;
+      }
+
+      return next;
+    });
   };
 
   const handleFlavorQuantityChange = (
@@ -122,13 +142,22 @@ export function PublicOrderForm({
     quantity: string
   ) => {
     const qty = parseInt(quantity, 10);
+    const recipeQuantity = quantities[recipeId] ?? 0;
     setFlavorSelections((prev) => {
       const next = { ...prev };
       const recipeFlavors = { ...(next[recipeId] ?? {}) };
-      if (isNaN(qty) || qty <= 0) {
+
+      const totalOtherFlavors = Object.entries(recipeFlavors).reduce(
+        (sum, [selectedFlavor, selectedQty]) =>
+          selectedFlavor === flavor ? sum : sum + selectedQty,
+        0
+      );
+      const maxAllowedForFlavor = Math.max(0, recipeQuantity - totalOtherFlavors);
+
+      if (isNaN(qty) || qty <= 0 || maxAllowedForFlavor === 0) {
         delete recipeFlavors[flavor];
       } else {
-        recipeFlavors[flavor] = qty;
+        recipeFlavors[flavor] = Math.min(qty, maxAllowedForFlavor);
       }
 
       if (Object.keys(recipeFlavors).length === 0) {
@@ -426,6 +455,24 @@ export function PublicOrderForm({
                       </p>
                       <div className="space-y-2">
                         {recipe.orderFlavorOptions!.map((flavor) => (
+                          (() => {
+                            const selectedQty = quantities[recipe.id] ?? 0;
+                            const currentFlavorQty =
+                              flavorSelections[recipe.id]?.[flavor] ?? 0;
+                            const assignedOtherFlavors =
+                              recipe.orderFlavorOptions!.reduce(
+                                (sum, option) =>
+                                  option === flavor
+                                    ? sum
+                                    : sum + (flavorSelections[recipe.id]?.[option] ?? 0),
+                                0
+                              );
+                            const maxFlavorQty = Math.max(
+                              0,
+                              selectedQty - assignedOtherFlavors
+                            );
+
+                            return (
                           <div
                             key={`${recipe.id}-${flavor}`}
                             className="flex items-center justify-between gap-2"
@@ -439,7 +486,7 @@ export function PublicOrderForm({
                             <Select
                               value={
                                 String(
-                                  flavorSelections[recipe.id]?.[flavor] ?? 0
+                                  Math.min(currentFlavorQty, maxFlavorQty)
                                 )
                               }
                               onValueChange={(value) =>
@@ -454,7 +501,7 @@ export function PublicOrderForm({
                               </SelectTrigger>
                               <SelectContent>
                                 {Array.from(
-                                  { length: (quantities[recipe.id] ?? 0) + 1 },
+                                  { length: maxFlavorQty + 1 },
                                   (_, i) => i
                                 ).map((value) => (
                                   <SelectItem key={value} value={String(value)}>
@@ -464,6 +511,8 @@ export function PublicOrderForm({
                               </SelectContent>
                             </Select>
                           </div>
+                            );
+                          })()
                         ))}
                       </div>
                       <p className="text-xs text-text-secondary">
