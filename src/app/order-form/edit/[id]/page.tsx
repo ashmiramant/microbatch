@@ -108,8 +108,11 @@ export default function EditOrderFromLinkPage({
         Record<number, Record<string, number>>
       >((acc, item) => {
         const note = item.notes ?? "";
-        if (!note.toLowerCase().startsWith("flavors:")) return acc;
-        const summary = note.replace(/^flavors:\s*/i, "").trim();
+        if (!/^(flavors?|flavor split)\s*:/i.test(note.trim())) return acc;
+        const summary = note
+          .trim()
+          .replace(/^(flavors?|flavor split)\s*:\s*/i, "")
+          .trim();
         if (!summary) return acc;
         const parsed: Record<string, number> = {};
         for (const segment of summary.split(",")) {

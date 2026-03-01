@@ -36,6 +36,12 @@ function getConfirmationEmailSentAt(notes: string | null) {
   return (match?.[1] ?? "").trim();
 }
 
+function getItemSelectionSummary(notes: string | null | undefined) {
+  const trimmed = notes?.trim();
+  if (!trimmed) return "";
+  return trimmed.replace(/^(flavors?|flavor split)\s*:\s*/i, "").trim();
+}
+
 export default async function OrderDetailPage({
   params,
 }: {
@@ -106,9 +112,9 @@ export default async function OrderDetailPage({
                           <TableCell className="font-serif font-medium">
                             <div>
                               <p>{item.recipe?.name ?? `Recipe #${item.recipeId}`}</p>
-                              {item.notes?.toLowerCase().startsWith("flavors:") ? (
+                              {getItemSelectionSummary(item.notes) ? (
                                 <p className="mt-1 text-xs font-normal text-text-secondary">
-                                  {item.notes.replace(/^flavors:\s*/i, "")}
+                                  {getItemSelectionSummary(item.notes)}
                                 </p>
                               ) : null}
                             </div>

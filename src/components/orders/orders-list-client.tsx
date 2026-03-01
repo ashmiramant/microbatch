@@ -106,6 +106,12 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
     });
   }
 
+  function getItemSelectionSummary(notes: string | null | undefined) {
+    const trimmed = notes?.trim();
+    if (!trimmed) return "";
+    return trimmed.replace(/^(flavors?|flavor split)\s*:\s*/i, "").trim();
+  }
+
   return (
     <div className="rounded-lg border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
@@ -197,11 +203,9 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
                         .map((item) => {
                           const recipeName =
                             item.recipe?.name ?? `Recipe #${item.recipeId}`;
-                          const flavorSummary = item.notes?.toLowerCase().startsWith("flavors:")
-                            ? item.notes.replace(/^flavors:\s*/i, "")
-                            : "";
-                          return flavorSummary
-                            ? `${recipeName} x${item.quantity} (${flavorSummary})`
+                          const selectionSummary = getItemSelectionSummary(item.notes);
+                          return selectionSummary
+                            ? `${recipeName} x${item.quantity} (${selectionSummary})`
                             : `${recipeName} x${item.quantity}`;
                         })
                         .join(", ")}

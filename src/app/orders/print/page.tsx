@@ -17,6 +17,12 @@ function parsePrice(value: string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getItemSelectionSummary(notes: string | null | undefined) {
+  const trimmed = notes?.trim();
+  if (!trimmed) return "";
+  return trimmed.replace(/^(flavors?|flavor split)\s*:\s*/i, "").trim();
+}
+
 export default async function OrdersPrintPage({ searchParams }: PrintPageProps) {
   await requireAuth();
   const params = await searchParams;
@@ -79,13 +85,14 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
                   const recipeName = item.recipe?.name ?? `Recipe #${item.recipeId}`;
                   const unitPrice = parsePrice(item.unitPrice ?? item.recipe?.price ?? null);
                   const lineTotal = unitPrice * item.quantity;
+                  const selectionSummary = getItemSelectionSummary(item.notes);
                   return (
                     <li key={item.id} className="flex justify-between gap-2">
                       <span className="pr-2">
                         <span>x{item.quantity} {recipeName}</span>
-                        {item.notes?.toLowerCase().startsWith("flavors:") ? (
+                        {selectionSummary ? (
                           <span className="block text-sm font-normal text-text-secondary">
-                            {item.notes.replace(/^flavors:\s*/i, "")}
+                            {selectionSummary}
                           </span>
                         ) : null}
                       </span>
