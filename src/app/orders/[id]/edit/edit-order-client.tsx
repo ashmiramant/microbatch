@@ -29,6 +29,7 @@ type EditOrderClientProps = {
     items: Array<{
       recipeId: number;
       quantity: number;
+      notes?: string | null;
       recipe: {
         name: string;
       } | null;
@@ -65,6 +66,26 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
       return acc;
     }, {})
   );
+  const originalItemsByRecipeId = useMemo(
+    () =>
+      order.items.reduce<Record<number, { quantity: number; notes: string | null }>>(
+        (acc, item) => {
+          acc[item.recipeId] = {
+            quantity: item.quantity,
+            notes: item.notes ?? null,
+          };
+          return acc;
+        },
+        {}
+      ),
+    [order.items]
+  );
+
+  function getItemSelectionSummary(notes: string | null | undefined) {
+    const trimmed = notes?.trim();
+    if (!trimmed) return "";
+    return trimmed.replace(/^(flavors?|flavor split)\s*:\s*/i, "").trim();
+  }
 
   const selectedItems = useMemo(
     () =>
@@ -72,13 +93,17 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
         .filter(([, quantity]) => quantity > 0)
         .map(([recipeId, quantity]) => {
           const recipe = recipes.find((r) => r.id === Number(recipeId));
+          const originalItem = originalItemsByRecipeId[Number(recipeId)];
+          const shouldPreserveNotes =
+            !!originalItem && originalItem.quantity === quantity;
           return {
             recipeId: Number(recipeId),
             recipeName: recipe?.name ?? `Recipe #${recipeId}`,
             quantity,
+            notes: shouldPreserveNotes ? originalItem.notes : null,
           };
         }),
-    [quantities, recipes]
+    [quantities, recipes, originalItemsByRecipeId]
   );
 
   function handleQuantityChange(recipeId: number, quantity: number) {
@@ -108,6 +133,7 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
         items: selectedItems.map((item) => ({
           recipeId: item.recipeId,
           quantity: item.quantity,
+          notes: item.notes,
         })),
       });
 
@@ -191,7 +217,16 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
                 <TableBody>
                   {selectedItems.map((item) => (
                     <TableRow key={item.recipeId}>
-                      <TableCell className="font-serif">{item.recipeName}</TableCell>
+                      <TableCell className="font-serif">
+                        <div>
+                          <p>{item.recipeName}</p>
+                          {getItemSelectionSummary(item.notes) ? (
+                            <p className="mt-1 text-xs font-normal text-text-secondary">
+                              Flavor selection: {getItemSelectionSummary(item.notes)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right font-mono">{item.quantity}</TableCell>
                     </TableRow>
                   ))}
