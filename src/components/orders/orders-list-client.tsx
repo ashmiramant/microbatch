@@ -198,17 +198,22 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
                 </TableCell>
                 <TableCell className="text-text-secondary">
                   {order.items.length ? (
-                    <div className="max-w-[360px] truncate">
-                      {order.items
-                        .map((item) => {
-                          const recipeName =
-                            item.recipe?.name ?? `Recipe #${item.recipeId}`;
-                          const selectionSummary = getItemSelectionSummary(item.notes);
-                          return selectionSummary
-                            ? `${recipeName} x${item.quantity} (${selectionSummary})`
-                            : `${recipeName} x${item.quantity}`;
-                        })
-                        .join(", ")}
+                    <div className="max-w-[360px] space-y-1">
+                      {order.items.map((item) => {
+                        const recipeName =
+                          item.recipe?.name ?? `Recipe #${item.recipeId}`;
+                        const selectionSummary = getItemSelectionSummary(item.notes);
+                        return (
+                          <div key={`${order.id}-${item.recipeId}-${recipeName}`}>
+                            <p>{`${recipeName} x${item.quantity}`}</p>
+                            {selectionSummary ? (
+                              <p className="text-xs text-text-secondary">
+                                Flavor selection: {selectionSummary}
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     "No items"

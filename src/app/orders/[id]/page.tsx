@@ -107,14 +107,15 @@ export default async function OrderDetailPage({
                         ? parseFloat(item.unitPrice)
                         : 0;
                       const subtotal = unitPrice * item.quantity;
+                      const selectionSummary = getItemSelectionSummary(item.notes);
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-serif font-medium">
                             <div>
                               <p>{item.recipe?.name ?? `Recipe #${item.recipeId}`}</p>
-                              {getItemSelectionSummary(item.notes) ? (
+                              {selectionSummary ? (
                                 <p className="mt-1 text-xs font-normal text-text-secondary">
-                                  {getItemSelectionSummary(item.notes)}
+                                  Flavor selection: {selectionSummary}
                                 </p>
                               ) : null}
                             </div>

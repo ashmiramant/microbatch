@@ -107,12 +107,21 @@ export default async function OrdersPage({
       ) : (
         <div className="space-y-6">
           <div className="rounded-lg border border-border bg-surface p-5">
-            <h3 className="font-serif text-lg font-semibold text-text-primary">
-              Item Totals
-            </h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              Running totals from {view === "archived" ? "archived" : "active"} orders.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-serif text-lg font-semibold text-text-primary">
+                  Item Totals
+                </h3>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Running totals from {view === "archived" ? "archived" : "active"} orders.
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/orders/print-totals?view=${view}&channel=${channel}`}>
+                  Print Totals
+                </Link>
+              </Button>
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {itemTotalsList.map(([name, quantity]) => (
                 <Badge key={name} variant="secondary" className="px-3 py-1">
