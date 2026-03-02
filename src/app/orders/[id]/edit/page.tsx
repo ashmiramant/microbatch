@@ -36,6 +36,11 @@ export default async function EditOrderPage({
           name: recipe.name,
           category: recipe.category,
           imageUrl: recipe.imageUrl,
+          orderFlavorOptions: Array.isArray(recipe.orderFlavorOptions)
+            ? recipe.orderFlavorOptions
+                .map((option) => String(option).trim())
+                .filter(Boolean)
+            : null,
         }))
       : [];
 

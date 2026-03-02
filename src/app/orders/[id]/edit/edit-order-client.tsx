@@ -40,6 +40,7 @@ type EditOrderClientProps = {
     name: string;
     category: string | null;
     imageUrl: string | null;
+    orderFlavorOptions: string[] | null;
   }>;
 };
 
@@ -63,6 +64,27 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
       if (item.quantity > 0) {
         acc[item.recipeId] = item.quantity;
       }
+      return acc;
+    }, {})
+  );
+  const [flavorSelections, setFlavorSelections] = useState<
+    Record<number, Record<string, number>>
+  >(() =>
+    order.items.reduce<Record<number, Record<string, number>>>((acc, item) => {
+      const summary = getItemSelectionSummary(item.notes);
+      if (!summary) return acc;
+
+      const parsed: Record<string, number> = {};
+      for (const segment of summary.split(",")) {
+        const match = segment.trim().match(/^(.*?)\s+x(\d+)$/i);
+        if (!match) continue;
+        parsed[match[1].trim()] = parseInt(match[2], 10);
+      }
+
+      if (Object.keys(parsed).length > 0) {
+        acc[item.recipeId] = parsed;
+      }
+
       return acc;
     }, {})
   );
@@ -96,14 +118,36 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
           const originalItem = originalItemsByRecipeId[Number(recipeId)];
           const shouldPreserveNotes =
             !!originalItem && originalItem.quantity === quantity;
+          const flavorOptions = recipe?.orderFlavorOptions ?? [];
+          const flavorCounts = flavorSelections[Number(recipeId)] ?? {};
+          const flavorSummary = flavorOptions
+            .map((option) => ({ option, count: flavorCounts[option] ?? 0 }))
+            .filter((entry) => entry.count > 0)
+            .map((entry) => `${entry.option} x${entry.count}`)
+            .join(", ");
+
+          let notesForItem: string | null = null;
+          if (flavorOptions.length > 0) {
+            notesForItem = flavorSummary
+              ? `Flavors: ${flavorSummary}`
+              : shouldPreserveNotes
+                ? (originalItem?.notes ?? null)
+                : null;
+          } else {
+            notesForItem = shouldPreserveNotes ? (originalItem?.notes ?? null) : null;
+          }
+
           return {
             recipeId: Number(recipeId),
             recipeName: recipe?.name ?? `Recipe #${recipeId}`,
             quantity,
-            notes: shouldPreserveNotes ? originalItem.notes : null,
+            notes: notesForItem,
+            flavorOptions,
+            flavorCounts,
+            flavorSummary,
           };
         }),
-    [quantities, recipes, originalItemsByRecipeId]
+    [quantities, recipes, originalItemsByRecipeId, flavorSelections]
   );
 
   function handleQuantityChange(recipeId: number, quantity: number) {
@@ -116,6 +160,62 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
       }
       return next;
     });
+
+    setFlavorSelections((prev) => {
+      const next = { ...prev };
+      if (quantity <= 0) {
+        delete next[recipeId];
+        return next;
+      }
+
+      const currentFlavors = next[recipeId];
+      if (!currentFlavors) return next;
+
+      const clampedFlavors: Record<string, number> = {};
+      let remaining = quantity;
+      for (const [flavor, count] of Object.entries(currentFlavors)) {
+        const clampedCount = Math.max(0, Math.min(count, remaining));
+        if (clampedCount > 0) {
+          clampedFlavors[flavor] = clampedCount;
+          remaining -= clampedCount;
+        }
+      }
+
+      if (Object.keys(clampedFlavors).length === 0) {
+        delete next[recipeId];
+      } else {
+        next[recipeId] = clampedFlavors;
+      }
+      return next;
+    });
+  }
+
+  function handleFlavorQuantityChange(recipeId: number, flavor: string, quantity: string) {
+    const qty = parseInt(quantity, 10);
+    const recipeQuantity = quantities[recipeId] ?? 0;
+    setFlavorSelections((prev) => {
+      const next = { ...prev };
+      const recipeFlavors = { ...(next[recipeId] ?? {}) };
+      const totalOtherFlavors = Object.entries(recipeFlavors).reduce(
+        (sum, [selectedFlavor, selectedQty]) =>
+          selectedFlavor === flavor ? sum : sum + selectedQty,
+        0
+      );
+      const maxAllowedForFlavor = Math.max(0, recipeQuantity - totalOtherFlavors);
+
+      if (isNaN(qty) || qty <= 0 || maxAllowedForFlavor === 0) {
+        delete recipeFlavors[flavor];
+      } else {
+        recipeFlavors[flavor] = Math.min(qty, maxAllowedForFlavor);
+      }
+
+      if (Object.keys(recipeFlavors).length === 0) {
+        delete next[recipeId];
+      } else {
+        next[recipeId] = recipeFlavors;
+      }
+      return next;
+    });
   }
 
   function handleSave() {
@@ -123,6 +223,20 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
     if (!orderName.trim()) {
       setError("Please add a name for this order.");
       return;
+    }
+
+    for (const item of selectedItems) {
+      if (item.flavorOptions.length === 0) continue;
+      const totalFlavorCount = item.flavorOptions.reduce(
+        (sum, option) => sum + (item.flavorCounts[option] ?? 0),
+        0
+      );
+      if (totalFlavorCount !== item.quantity) {
+        setError(
+          `${item.recipeName}: flavor counts must add up to ${item.quantity}.`
+        );
+        return;
+      }
     }
 
     startTransition(async () => {
@@ -204,6 +318,84 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
             onQuantityChange={handleQuantityChange}
           />
         </div>
+
+        {selectedItems.some((item) => item.flavorOptions.length > 0) ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Flavor Split</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selectedItems
+                .filter((item) => item.flavorOptions.length > 0)
+                .map((item) => (
+                  <div
+                    key={`flavors-${item.recipeId}`}
+                    className="space-y-2 rounded-lg border border-border bg-background p-3"
+                  >
+                    <p className="text-sm font-semibold text-text-primary">
+                      {item.recipeName}
+                    </p>
+                    {item.flavorOptions.map((flavor) => {
+                      const currentFlavorQty = item.flavorCounts[flavor] ?? 0;
+                      const assignedOtherFlavors = item.flavorOptions.reduce(
+                        (sum, option) =>
+                          option === flavor ? sum : sum + (item.flavorCounts[option] ?? 0),
+                        0
+                      );
+                      const maxFlavorQty = Math.max(
+                        0,
+                        item.quantity - assignedOtherFlavors
+                      );
+
+                      return (
+                        <div
+                          key={`${item.recipeId}-${flavor}`}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <Label
+                            htmlFor={`admin-edit-flavor-${item.recipeId}-${flavor}`}
+                            className="text-sm text-text-primary"
+                          >
+                            {flavor}
+                          </Label>
+                          <Select
+                            value={String(Math.min(currentFlavorQty, maxFlavorQty))}
+                            onValueChange={(value) =>
+                              handleFlavorQuantityChange(item.recipeId, flavor, value)
+                            }
+                          >
+                            <SelectTrigger
+                              id={`admin-edit-flavor-${item.recipeId}-${flavor}`}
+                              className="w-24"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: maxFlavorQty + 1 }, (_, i) => i).map(
+                                (value) => (
+                                  <SelectItem key={value} value={String(value)}>
+                                    {value}
+                                  </SelectItem>
+                                )
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
+                    <p className="text-xs text-text-secondary">
+                      Assigned:{" "}
+                      {item.flavorOptions.reduce(
+                        (sum, flavor) => sum + (item.flavorCounts[flavor] ?? 0),
+                        0
+                      )}{" "}
+                      / {item.quantity}
+                    </p>
+                  </div>
+                ))}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
 
       <div className="lg:sticky lg:top-8 lg:self-start">
@@ -220,9 +412,9 @@ export function EditOrderClient({ order, recipes }: EditOrderClientProps) {
                       <TableCell className="font-serif">
                         <div>
                           <p>{item.recipeName}</p>
-                          {getItemSelectionSummary(item.notes) ? (
+                          {item.flavorSummary ? (
                             <p className="mt-1 text-xs font-normal text-text-secondary">
-                              Flavor selection: {getItemSelectionSummary(item.notes)}
+                              Flavor selection: {item.flavorSummary}
                             </p>
                           ) : null}
                         </div>
