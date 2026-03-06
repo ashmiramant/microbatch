@@ -676,7 +676,7 @@ export default function CustomerOrderFormPage() {
     <PublicOrderForm
       channel="main"
       title="Place Your Order"
-      headerLines={["Saturday, February 21st: Pickup 9am or Later"]}
+      headerLines={["Pickup 9am or Later"]}
     />
   );
 }
