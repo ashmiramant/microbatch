@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, ChefHat } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { updateRecipe } from "@/lib/actions/recipes";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface RecipeCardProps {
   recipe: {
@@ -14,6 +17,8 @@ interface RecipeCardProps {
     slug: string;
     category: string | null;
     isSourdough: boolean | null;
+    availableForMainOrder: boolean | null;
+    availableForRootedOrder: boolean | null;
     yieldQuantity: string | null;
     yieldUnit: string | null;
     imageUrl: string | null;
@@ -29,9 +34,46 @@ function formatTime(minutes: number): string {
 }
 
 export function RecipeCard({ recipe }: RecipeCardProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [availableForMainOrder, setAvailableForMainOrder] = useState(
+    !!recipe.availableForMainOrder
+  );
+  const [availableForRootedOrder, setAvailableForRootedOrder] = useState(
+    !!recipe.availableForRootedOrder
+  );
+
+  function toggleMainForm() {
+    const nextValue = !availableForMainOrder;
+    setAvailableForMainOrder(nextValue);
+    startTransition(async () => {
+      const result = await updateRecipe(recipe.id, {
+        availableForMainOrder: nextValue,
+      });
+      if (!result.success) {
+        setAvailableForMainOrder(!nextValue);
+      }
+      router.refresh();
+    });
+  }
+
+  function toggleRootedForm() {
+    const nextValue = !availableForRootedOrder;
+    setAvailableForRootedOrder(nextValue);
+    startTransition(async () => {
+      const result = await updateRecipe(recipe.id, {
+        availableForRootedOrder: nextValue,
+      });
+      if (!result.success) {
+        setAvailableForRootedOrder(!nextValue);
+      }
+      router.refresh();
+    });
+  }
+
   return (
-    <Link href={`/recipes/${recipe.id}`} className="group block">
-      <Card className="overflow-hidden p-0 transition-all duration-200 hover:shadow-md group-hover:scale-[1.02]">
+    <Card className="overflow-hidden p-0 transition-all duration-200 hover:shadow-md">
+      <Link href={`/recipes/${recipe.id}`} className="group block">
         {recipe.imageUrl ? (
           <div className="relative h-40 w-full overflow-hidden">
             <Image
@@ -75,7 +117,33 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
             )}
           </div>
         </div>
-      </Card>
-    </Link>
+      </Link>
+
+      <div className="border-t border-border bg-background/50 px-4 py-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+          Order Forms
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={availableForMainOrder ? "default" : "outline"}
+            disabled={isPending}
+            onClick={toggleMainForm}
+          >
+            Main Form
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={availableForRootedOrder ? "default" : "outline"}
+            disabled={isPending}
+            onClick={toggleRootedForm}
+          >
+            Rooted Form
+          </Button>
+        </div>
+      </div>
+    </Card>
   );
 }

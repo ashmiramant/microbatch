@@ -13,6 +13,8 @@ type RecipeSummary = {
   slug: string;
   category: string | null;
   isSourdough: boolean | null;
+  availableForMainOrder: boolean | null;
+  availableForRootedOrder: boolean | null;
   yieldQuantity: string | null;
   yieldUnit: string | null;
   imageUrl: string | null;
