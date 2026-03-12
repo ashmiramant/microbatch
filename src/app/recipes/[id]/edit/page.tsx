@@ -77,7 +77,6 @@ export default function EditRecipePage({
   const [availableForRootedOrder, setAvailableForRootedOrder] = useState(false);
   const [orderFlavorOptionsText, setOrderFlavorOptionsText] = useState("");
   const [price, setPrice] = useState("");
-  const [priceForRootedOrder, setPriceForRootedOrder] = useState("");
   const [minQuantityForRootedOrder, setMinQuantityForRootedOrder] = useState("");
   const [yieldQuantity, setYieldQuantity] = useState("");
   const [yieldUnit, setYieldUnit] = useState("");
@@ -120,7 +119,6 @@ export default function EditRecipePage({
           : ""
       );
       setPrice(r.price || "");
-      setPriceForRootedOrder(r.priceForRootedOrder || "");
       setMinQuantityForRootedOrder(
         r.minQuantityForRootedOrder != null ? String(r.minQuantityForRootedOrder) : ""
       );
@@ -225,7 +223,6 @@ export default function EditRecipePage({
         availableForMainOrder: availableForMainOrder,
         availableForRootedOrder: availableForRootedOrder,
         price: price.trim() || null,
-        priceForRootedOrder: priceForRootedOrder.trim() || null,
         minQuantityForRootedOrder: minQuantityForRootedOrder.trim()
           ? parseInt(minQuantityForRootedOrder, 10)
           : null,
@@ -426,22 +423,7 @@ export default function EditRecipePage({
           </div>
 
           {availableForRootedOrder ? (
-            <div className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="price-rooted">Rooted Community price ($)</Label>
-                <Input
-                  id="price-rooted"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={priceForRootedOrder}
-                  onChange={(e) => setPriceForRootedOrder(e.target.value)}
-                  placeholder="Same as main"
-                />
-                <p className="text-xs text-text-secondary">
-                  Leave blank to use the main price.
-                </p>
-              </div>
+            <div className="rounded-lg border border-border bg-surface p-4">
               <div className="space-y-2">
                 <Label htmlFor="min-qty-rooted">Rooted Community minimum quantity</Label>
                 <Input
@@ -453,7 +435,7 @@ export default function EditRecipePage({
                   placeholder="None"
                 />
                 <p className="text-xs text-text-secondary">
-                  e.g. 4 for &quot;minimum 4 per order&quot;. Leave blank for no minimum.
+                  e.g. 4 for &quot;minimum 4 per order&quot; on the Rooted form. Same price as main; leave blank for no minimum.
                 </p>
               </div>
             </div>

@@ -26,7 +26,6 @@ type Recipe = {
   imageUrl: string | null;
   description: string | null;
   price: string | null;
-  priceForRootedOrder: string | null;
   minQuantityForRootedOrder: number | null;
   orderFlavorOptions: string[] | null;
 };
@@ -86,7 +85,6 @@ export default function EditOrderFromLinkPage({
             imageUrl: r.imageUrl,
             description: r.description,
             price: r.price,
-            priceForRootedOrder: r.priceForRootedOrder ?? null,
             minQuantityForRootedOrder: r.minQuantityForRootedOrder ?? null,
             orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
               ? r.orderFlavorOptions
@@ -138,13 +136,6 @@ export default function EditOrderFromLinkPage({
     loadData();
   }, [orderId, token]);
 
-  function effectivePrice(recipe: Recipe): number {
-    if (channel === "rooted_community" && recipe.priceForRootedOrder) {
-      return parseFloat(recipe.priceForRootedOrder);
-    }
-    return recipe.price ? parseFloat(recipe.price) : 0;
-  }
-
   const selectedItems = useMemo(
     () =>
       Object.entries(quantities)
@@ -162,14 +153,14 @@ export default function EditOrderFromLinkPage({
             recipeId: Number(recipeId),
             recipeName: recipe?.name ?? "Unknown",
             quantity: qty,
-            price: recipe ? effectivePrice(recipe) : 0,
+            price: recipe?.price ? parseFloat(recipe.price) : 0,
             flavorOptions,
             flavorCounts,
             flavorSummary,
             notes: flavorSummary ? `Flavors: ${flavorSummary}` : null,
           };
         }),
-    [quantities, recipes, flavorSelections, channel]
+    [quantities, recipes, flavorSelections]
   );
 
   const totalPrice = selectedItems.reduce(
@@ -351,9 +342,9 @@ export default function EditOrderFromLinkPage({
                     <h3 className="font-serif text-lg font-semibold text-text-primary">
                       {recipe.name}
                     </h3>
-                    {effectivePrice(recipe) > 0 ? (
+                    {recipe.price && parseFloat(recipe.price) > 0 ? (
                       <span className="font-semibold text-accent">
-                        ${effectivePrice(recipe).toFixed(2)}
+                        ${parseFloat(recipe.price).toFixed(2)}
                         {channel === "rooted_community" &&
                           recipe.minQuantityForRootedOrder != null &&
                           recipe.minQuantityForRootedOrder > 0 && (
