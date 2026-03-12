@@ -4,8 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, ChefHat } from "lucide-react";
-import { updateRecipe } from "@/lib/actions/recipes";
+import { Clock, ChefHat, Copy } from "lucide-react";
+import { updateRecipe, duplicateRecipe } from "@/lib/actions/recipes";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,6 +68,18 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
         setAvailableForRootedOrder(!nextValue);
       }
       router.refresh();
+    });
+  }
+
+  function handleDuplicate(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    startTransition(async () => {
+      const result = await duplicateRecipe(recipe.id);
+      if (result.success && result.data?.id) {
+        router.refresh();
+        router.push(`/recipes/${result.data.id}`);
+      }
     });
   }
 
@@ -143,6 +155,17 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
             Rooted Form
           </Button>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-3 w-full justify-start text-text-secondary"
+          disabled={isPending}
+          onClick={handleDuplicate}
+        >
+          <Copy className="mr-2 h-4 w-4" />
+          Duplicate
+        </Button>
       </div>
     </Card>
   );

@@ -298,6 +298,73 @@ export async function getRecipe(id: number) {
   }
 }
 
+export async function duplicateRecipe(id: number) {
+  try {
+    const existing = await getRecipe(id);
+    if (!existing.success || !existing.data) {
+      return { success: false, error: existing.error ?? "Recipe not found" };
+    }
+
+    const r = existing.data;
+    const createData: CreateRecipeInput = {
+      name: `${r.name} (copy)`,
+      sourceUrl: r.sourceUrl,
+      sourceType: r.sourceType,
+      description: r.description,
+      imageUrl: r.imageUrl,
+      price: r.price,
+      yieldQuantity: r.yieldQuantity,
+      yieldUnit: r.yieldUnit,
+      yieldWeightGrams: r.yieldWeightGrams,
+      prepTimeMinutes: r.prepTimeMinutes,
+      cookTimeMinutes: r.cookTimeMinutes,
+      totalTimeMinutes: r.totalTimeMinutes,
+      category: r.category,
+      isSourdough: r.isSourdough,
+      availableForOrder: r.availableForOrder,
+      availableForMainOrder: r.availableForMainOrder,
+      availableForRootedOrder: r.availableForRootedOrder,
+      orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
+        ? r.orderFlavorOptions.map((o) => String(o))
+        : null,
+      defaultPanId: r.defaultPanId,
+      notes: r.notes,
+      rawLdJson: r.rawLdJson,
+      ingredients: r.ingredients.map((ing) => ({
+        sortOrder: ing.sortOrder,
+        rawText: ing.rawText,
+        ingredientId: ing.ingredientId,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        unitGrams: ing.unitGrams,
+        ingredientName: ing.ingredientName,
+        prepNotes: ing.prepNotes,
+        isFlour: ing.isFlour,
+        bakersPercentage: ing.bakersPercentage,
+        sectionLabel: ing.sectionLabel,
+      })),
+      instructions: r.instructions.map((inst) => ({
+        sortOrder: inst.sortOrder,
+        stepType: inst.stepType,
+        name: inst.name,
+        text: inst.text,
+        durationMinutes: inst.durationMinutes,
+        temperatureF: inst.temperatureF,
+        sectionLabel: inst.sectionLabel,
+      })),
+    };
+
+    const result = await createRecipe(createData);
+    if (!result.success) {
+      return result;
+    }
+    return { success: true, data: { id: result.data!.id } };
+  } catch (error) {
+    console.error("Failed to duplicate recipe:", error);
+    return { success: false, error: "Failed to duplicate recipe" };
+  }
+}
+
 export async function getRecipes() {
   try {
     await ensureRecipeOrderFormColumns();
