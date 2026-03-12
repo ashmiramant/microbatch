@@ -77,6 +77,8 @@ export default function EditRecipePage({
   const [availableForRootedOrder, setAvailableForRootedOrder] = useState(false);
   const [orderFlavorOptionsText, setOrderFlavorOptionsText] = useState("");
   const [price, setPrice] = useState("");
+  const [priceForRootedOrder, setPriceForRootedOrder] = useState("");
+  const [minQuantityForRootedOrder, setMinQuantityForRootedOrder] = useState("");
   const [yieldQuantity, setYieldQuantity] = useState("");
   const [yieldUnit, setYieldUnit] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -118,6 +120,10 @@ export default function EditRecipePage({
           : ""
       );
       setPrice(r.price || "");
+      setPriceForRootedOrder(r.priceForRootedOrder || "");
+      setMinQuantityForRootedOrder(
+        r.minQuantityForRootedOrder != null ? String(r.minQuantityForRootedOrder) : ""
+      );
       setYieldQuantity(r.yieldQuantity || "");
       setYieldUnit(r.yieldUnit || "");
       setImageUrl(r.imageUrl || "");
@@ -219,6 +225,10 @@ export default function EditRecipePage({
         availableForMainOrder: availableForMainOrder,
         availableForRootedOrder: availableForRootedOrder,
         price: price.trim() || null,
+        priceForRootedOrder: priceForRootedOrder.trim() || null,
+        minQuantityForRootedOrder: minQuantityForRootedOrder.trim()
+          ? parseInt(minQuantityForRootedOrder, 10)
+          : null,
         yieldQuantity: yieldQuantity.trim() || null,
         yieldUnit: yieldUnit.trim() || null,
         imageUrl: imageUrl.trim() || null,
@@ -329,7 +339,7 @@ export default function EditRecipePage({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="price">Price ($)</Label>
+              <Label htmlFor="price">Price ($) — Main order form</Label>
               <Input
                 id="price"
                 type="number"
@@ -414,6 +424,40 @@ export default function EditRecipePage({
               </Label>
             </div>
           </div>
+
+          {availableForRootedOrder ? (
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="price-rooted">Rooted Community price ($)</Label>
+                <Input
+                  id="price-rooted"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={priceForRootedOrder}
+                  onChange={(e) => setPriceForRootedOrder(e.target.value)}
+                  placeholder="Same as main"
+                />
+                <p className="text-xs text-text-secondary">
+                  Leave blank to use the main price.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="min-qty-rooted">Rooted Community minimum quantity</Label>
+                <Input
+                  id="min-qty-rooted"
+                  type="number"
+                  min="1"
+                  value={minQuantityForRootedOrder}
+                  onChange={(e) => setMinQuantityForRootedOrder(e.target.value)}
+                  placeholder="None"
+                />
+                <p className="text-xs text-text-secondary">
+                  e.g. 4 for &quot;minimum 4 per order&quot;. Leave blank for no minimum.
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
             <Label htmlFor="order-flavor-options">

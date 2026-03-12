@@ -54,6 +54,8 @@ type CreateRecipeInput = {
   availableForOrder?: boolean | null;
   availableForMainOrder?: boolean | null;
   availableForRootedOrder?: boolean | null;
+  priceForRootedOrder?: string | null;
+  minQuantityForRootedOrder?: number | null;
   orderFlavorOptions?: string[] | null;
   defaultPanId?: number | null;
   notes?: string | null;
@@ -109,6 +111,8 @@ export async function createRecipe(data: CreateRecipeInput) {
           availableForOrder: data.availableForOrder,
           availableForMainOrder: data.availableForMainOrder,
           availableForRootedOrder: data.availableForRootedOrder,
+          priceForRootedOrder: data.priceForRootedOrder,
+          minQuantityForRootedOrder: data.minQuantityForRootedOrder,
           orderFlavorOptions: data.orderFlavorOptions,
           defaultPanId: data.defaultPanId,
           notes: data.notes,
@@ -190,6 +194,12 @@ export async function updateRecipe(id: number, data: UpdateRecipeInput) {
       }
       if (recipeFields.availableForRootedOrder !== undefined) {
         updateValues.availableForRootedOrder = recipeFields.availableForRootedOrder;
+      }
+      if (recipeFields.priceForRootedOrder !== undefined) {
+        updateValues.priceForRootedOrder = recipeFields.priceForRootedOrder;
+      }
+      if (recipeFields.minQuantityForRootedOrder !== undefined) {
+        updateValues.minQuantityForRootedOrder = recipeFields.minQuantityForRootedOrder;
       }
       if (recipeFields.orderFlavorOptions !== undefined) {
         updateValues.orderFlavorOptions = recipeFields.orderFlavorOptions;
@@ -324,6 +334,8 @@ export async function duplicateRecipe(id: number) {
       availableForOrder: r.availableForOrder,
       availableForMainOrder: r.availableForMainOrder,
       availableForRootedOrder: r.availableForRootedOrder,
+      priceForRootedOrder: r.priceForRootedOrder,
+      minQuantityForRootedOrder: r.minQuantityForRootedOrder,
       orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
         ? r.orderFlavorOptions.map((o) => String(o))
         : null,
@@ -432,6 +444,14 @@ async function ensureRecipeOrderFormColumns() {
   await db.execute(sql`
     ALTER TABLE recipes
     ADD COLUMN IF NOT EXISTS order_flavor_options jsonb
+  `);
+  await db.execute(sql`
+    ALTER TABLE recipes
+    ADD COLUMN IF NOT EXISTS price_for_rooted_order numeric(10,2)
+  `);
+  await db.execute(sql`
+    ALTER TABLE recipes
+    ADD COLUMN IF NOT EXISTS min_quantity_for_rooted_order integer
   `);
   await db.execute(sql`
     UPDATE recipes

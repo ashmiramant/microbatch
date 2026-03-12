@@ -26,6 +26,8 @@ type Recipe = {
   imageUrl: string | null;
   description: string | null;
   price: string | null;
+  priceForRootedOrder: string | null;
+  minQuantityForRootedOrder: number | null;
   orderFlavorOptions: string[] | null;
 };
 
@@ -46,6 +48,7 @@ export default function EditOrderFromLinkPage({
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
 
+  const [channel, setChannel] = useState<"main" | "rooted_community">("main");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [flavorSelections, setFlavorSelections] = useState<
@@ -69,9 +72,10 @@ export default function EditOrderFromLinkPage({
         return;
       }
 
-      const channel =
+      const orderChannel =
         orderResult.data.name?.startsWith("[Rooted Community]") ? "rooted_community" : "main";
-      const recipesResult = await getAvailableRecipesByChannel(channel);
+      setChannel(orderChannel);
+      const recipesResult = await getAvailableRecipesByChannel(orderChannel);
 
       if (recipesResult.success && recipesResult.data) {
         setRecipes(
@@ -82,6 +86,8 @@ export default function EditOrderFromLinkPage({
             imageUrl: r.imageUrl,
             description: r.description,
             price: r.price,
+            priceForRootedOrder: r.priceForRootedOrder ?? null,
+            minQuantityForRootedOrder: r.minQuantityForRootedOrder ?? null,
             orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
               ? r.orderFlavorOptions
                   .map((option) => String(option).trim())
@@ -132,6 +138,13 @@ export default function EditOrderFromLinkPage({
     loadData();
   }, [orderId, token]);
 
+  function effectivePrice(recipe: Recipe): number {
+    if (channel === "rooted_community" && recipe.priceForRootedOrder) {
+      return parseFloat(recipe.priceForRootedOrder);
+    }
+    return recipe.price ? parseFloat(recipe.price) : 0;
+  }
+
   const selectedItems = useMemo(
     () =>
       Object.entries(quantities)
@@ -149,14 +162,14 @@ export default function EditOrderFromLinkPage({
             recipeId: Number(recipeId),
             recipeName: recipe?.name ?? "Unknown",
             quantity: qty,
-            price: recipe?.price ? parseFloat(recipe.price) : 0,
+            price: recipe ? effectivePrice(recipe) : 0,
             flavorOptions,
             flavorCounts,
             flavorSummary,
             notes: flavorSummary ? `Flavors: ${flavorSummary}` : null,
           };
         }),
-    [quantities, recipes, flavorSelections]
+    [quantities, recipes, flavorSelections, channel]
   );
 
   const totalPrice = selectedItems.reduce(
@@ -338,9 +351,16 @@ export default function EditOrderFromLinkPage({
                     <h3 className="font-serif text-lg font-semibold text-text-primary">
                       {recipe.name}
                     </h3>
-                    {recipe.price ? (
+                    {effectivePrice(recipe) > 0 ? (
                       <span className="font-semibold text-accent">
-                        ${parseFloat(recipe.price).toFixed(2)}
+                        ${effectivePrice(recipe).toFixed(2)}
+                        {channel === "rooted_community" &&
+                          recipe.minQuantityForRootedOrder != null &&
+                          recipe.minQuantityForRootedOrder > 0 && (
+                            <span className="ml-1 text-xs font-normal text-text-secondary">
+                              (min {recipe.minQuantityForRootedOrder})
+                            </span>
+                          )}
                       </span>
                     ) : null}
                   </div>
@@ -441,11 +461,24 @@ export default function EditOrderFromLinkPage({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 11 }).map((_, i) => (
-                        <SelectItem key={i} value={String(i)}>
-                          {i}
-                        </SelectItem>
-                      ))}
+                      {(() => {
+                        const minQty =
+                          channel === "rooted_community" &&
+                          recipe.minQuantityForRootedOrder != null &&
+                          recipe.minQuantityForRootedOrder > 0
+                            ? recipe.minQuantityForRootedOrder
+                            : 0;
+                        const maxQty = minQty > 0 ? 24 : 10;
+                        const options =
+                          minQty > 0
+                            ? [0, ...Array.from({ length: maxQty - minQty + 1 }, (_, i) => minQty + i)]
+                            : Array.from({ length: maxQty + 1 }, (_, i) => i);
+                        return options.map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ));
+                      })()}
                     </SelectContent>
                   </Select>
                 </Card>

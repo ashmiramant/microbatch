@@ -28,6 +28,8 @@ type Recipe = {
   imageUrl: string | null;
   description: string | null;
   price: string | null;
+  priceForRootedOrder: string | null;
+  minQuantityForRootedOrder: number | null;
   orderFlavorOptions: string[] | null;
 };
 
@@ -83,6 +85,8 @@ export function PublicOrderForm({
             imageUrl: r.imageUrl,
             description: r.description,
             price: r.price,
+            priceForRootedOrder: r.priceForRootedOrder ?? null,
+            minQuantityForRootedOrder: r.minQuantityForRootedOrder ?? null,
             orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
               ? r.orderFlavorOptions
                   .map((option) => String(option).trim())
@@ -170,6 +174,13 @@ export function PublicOrderForm({
     });
   };
 
+  function effectivePrice(recipe: Recipe): number {
+    if (channel === "rooted_community" && recipe.priceForRootedOrder) {
+      return parseFloat(recipe.priceForRootedOrder);
+    }
+    return recipe.price ? parseFloat(recipe.price) : 0;
+  }
+
   const selectedItems = Object.entries(quantities)
     .filter(([, qty]) => qty > 0)
     .map(([id, qty]) => {
@@ -185,7 +196,7 @@ export function PublicOrderForm({
         recipeId: Number(id),
         recipeName: recipe?.name ?? "Unknown",
         quantity: qty,
-        price: recipe?.price ? parseFloat(recipe.price) : 0,
+        price: recipe ? effectivePrice(recipe) : 0,
         flavorOptions,
         flavorCounts,
         flavorSummary,
@@ -410,9 +421,16 @@ export function PublicOrderForm({
                     <h3 className="font-serif text-lg font-semibold text-text-primary">
                       {recipe.name}
                     </h3>
-                    {recipe.price && (
+                    {effectivePrice(recipe) > 0 && (
                       <span className="font-semibold text-accent">
-                        ${parseFloat(recipe.price).toFixed(2)}
+                        ${effectivePrice(recipe).toFixed(2)}
+                        {channel === "rooted_community" &&
+                          recipe.minQuantityForRootedOrder != null &&
+                          recipe.minQuantityForRootedOrder > 0 && (
+                            <span className="ml-1 text-xs font-normal text-text-secondary">
+                              (min {recipe.minQuantityForRootedOrder})
+                            </span>
+                          )}
                       </span>
                     )}
                   </div>
@@ -433,17 +451,24 @@ export function PublicOrderForm({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0">0</SelectItem>
-                        <SelectItem value="1">1</SelectItem>
-                        <SelectItem value="2">2</SelectItem>
-                        <SelectItem value="3">3</SelectItem>
-                        <SelectItem value="4">4</SelectItem>
-                        <SelectItem value="5">5</SelectItem>
-                        <SelectItem value="6">6</SelectItem>
-                        <SelectItem value="7">7</SelectItem>
-                        <SelectItem value="8">8</SelectItem>
-                        <SelectItem value="9">9</SelectItem>
-                        <SelectItem value="10">10</SelectItem>
+                        {(() => {
+                          const minQty =
+                            channel === "rooted_community" &&
+                            recipe.minQuantityForRootedOrder != null &&
+                            recipe.minQuantityForRootedOrder > 0
+                              ? recipe.minQuantityForRootedOrder
+                              : 0;
+                          const maxQty = minQty > 0 ? 24 : 10;
+                          const options =
+                            minQty > 0
+                              ? [0, ...Array.from({ length: maxQty - minQty + 1 }, (_, i) => minQty + i)]
+                              : Array.from({ length: maxQty + 1 }, (_, i) => i);
+                          return options.map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n}
+                            </SelectItem>
+                          ));
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>
