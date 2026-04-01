@@ -457,15 +457,20 @@ export default function EditRecipePage({
               id="order-variants"
               value={orderVariantsText}
               onChange={(e) => setOrderVariantsText(e.target.value)}
-              placeholder={`single|Single Bar|6.00\nbox_of_4|Box of 4 Bars|22.00`}
+              placeholder={`single|Single Bar|6\nbox_of_4|Box of 4 Bars|22`}
               rows={4}
               className="font-mono text-sm"
             />
             <p className="text-xs text-text-secondary">
-              One line per option: <span className="font-mono">id|label|price</span>.
-              Example: <span className="font-mono">single|Single Bar|6</span>. When you save
-              with at least one valid line, the order form uses a quantity dropdown per
-              variant instead of flavor splitting, and flavor options below are cleared.
+              One line per option, using the pipe character{" "}
+              <span className="font-mono">|</span> (shift + backslash on most keyboards), not
+              only commas:{" "}
+              <span className="font-mono">id|label|price</span>. You can also use commas:{" "}
+              <span className="font-mono">single, Single Bar, 6</span>, or paste a JSON array
+              of <span className="font-mono">id</span>, <span className="font-mono">label</span>
+              , and <span className="font-mono">price</span>. When you save with at least one
+              valid line, the order form shows a quantity dropdown per variant instead of
+              flavor splitting, and flavor options below are cleared.
             </p>
           </div>
 
