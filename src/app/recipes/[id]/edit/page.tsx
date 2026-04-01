@@ -20,6 +20,10 @@ import {
 } from "@/components/ui/select";
 import { getRecipe, updateRecipe } from "@/lib/actions/recipes";
 import { parseIngredients } from "@/lib/services/ingredient-parser";
+import {
+  formatOrderVariantsText,
+  parseOrderVariantsText,
+} from "@/lib/utils/order-variants";
 
 const CATEGORIES = [
   "Bread",
@@ -76,6 +80,7 @@ export default function EditRecipePage({
   const [availableForMainOrder, setAvailableForMainOrder] = useState(false);
   const [availableForRootedOrder, setAvailableForRootedOrder] = useState(false);
   const [orderFlavorOptionsText, setOrderFlavorOptionsText] = useState("");
+  const [orderVariantsText, setOrderVariantsText] = useState("");
   const [price, setPrice] = useState("");
   const [minQuantityForRootedOrder, setMinQuantityForRootedOrder] = useState("");
   const [yieldQuantity, setYieldQuantity] = useState("");
@@ -118,6 +123,7 @@ export default function EditRecipePage({
           ? r.orderFlavorOptions.map((option) => String(option)).join("\n")
           : ""
       );
+      setOrderVariantsText(formatOrderVariantsText(r.orderVariants));
       setPrice(r.price || "");
       setMinQuantityForRootedOrder(
         r.minQuantityForRootedOrder != null ? String(r.minQuantityForRootedOrder) : ""
@@ -210,11 +216,15 @@ export default function EditRecipePage({
           ? (prepTime || 0) + (cookTime || 0)
           : null;
 
+      const parsedVariants = parseOrderVariantsText(orderVariantsText);
       const result = await updateRecipe(recipeId, {
-        orderFlavorOptions: orderFlavorOptionsText
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean),
+        orderVariants: parsedVariants,
+        orderFlavorOptions: parsedVariants
+          ? []
+          : orderFlavorOptionsText
+              .split("\n")
+              .map((line) => line.trim())
+              .filter(Boolean),
         name: name.trim(),
         description: description.trim() || null,
         category: category || null,
@@ -442,6 +452,24 @@ export default function EditRecipePage({
           ) : null}
 
           <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
+            <Label htmlFor="order-variants">Order variants (optional)</Label>
+            <Textarea
+              id="order-variants"
+              value={orderVariantsText}
+              onChange={(e) => setOrderVariantsText(e.target.value)}
+              placeholder={`single|Single Bar|6.00\nbox_of_4|Box of 4 Bars|22.00`}
+              rows={4}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-text-secondary">
+              One line per option: <span className="font-mono">id|label|price</span>.
+              Example: <span className="font-mono">single|Single Bar|6</span>. When you save
+              with at least one valid line, the order form uses a quantity dropdown per
+              variant instead of flavor splitting, and flavor options below are cleared.
+            </p>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
             <Label htmlFor="order-flavor-options">
               Flavor options (one per line, optional)
             </Label>
@@ -451,10 +479,11 @@ export default function EditRecipePage({
               onChange={(e) => setOrderFlavorOptionsText(e.target.value)}
               placeholder={"Plain\nEverything\nAsiago"}
               rows={4}
+              disabled={Boolean(parseOrderVariantsText(orderVariantsText))}
             />
             <p className="text-xs text-text-secondary">
-              When set, customers must split the item quantity across these
-              flavor options.
+              When set (and no order variants), customers split quantity across these
+              flavors.
             </p>
           </div>
         </section>

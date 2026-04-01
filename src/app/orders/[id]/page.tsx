@@ -16,6 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/date";
+import {
+  getFlavorSelectionSummaryFromNotes,
+  getVariantLabelFromNotes,
+} from "@/lib/utils/order-item-display";
 import { OrderStatusActions } from "./order-status-actions";
 
 const statusConfig: Record<
@@ -34,12 +38,6 @@ function getConfirmationEmailSentAt(notes: string | null) {
   if (!notes) return "";
   const match = notes.match(/^Confirmation Email Sent At:\s*(.+)$/im);
   return (match?.[1] ?? "").trim();
-}
-
-function getItemSelectionSummary(notes: string | null | undefined) {
-  const trimmed = notes?.trim();
-  if (!trimmed) return "";
-  return trimmed.replace(/^(flavors?|flavor split)\s*:\s*/i, "").trim();
 }
 
 export default async function OrderDetailPage({
@@ -107,17 +105,34 @@ export default async function OrderDetailPage({
                         ? parseFloat(item.unitPrice)
                         : 0;
                       const subtotal = unitPrice * item.quantity;
-                      const selectionSummary = getItemSelectionSummary(item.notes);
+                      const variantLabel = getVariantLabelFromNotes(item.notes);
+                      const flavorSummary =
+                        getFlavorSelectionSummaryFromNotes(item.notes);
+                      const recipeTitle =
+                        item.recipe?.name ?? `Recipe #${item.recipeId}`;
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-serif font-medium">
                             <div>
-                              <p>{item.recipe?.name ?? `Recipe #${item.recipeId}`}</p>
-                              {selectionSummary ? (
-                                <p className="mt-1 text-xs font-normal text-text-secondary">
-                                  Flavor selection: {selectionSummary}
-                                </p>
-                              ) : null}
+                              {variantLabel ? (
+                                <>
+                                  <p>
+                                    {item.quantity} × {variantLabel}
+                                  </p>
+                                  <p className="mt-1 text-xs font-normal text-text-secondary">
+                                    {recipeTitle}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p>{recipeTitle}</p>
+                                  {flavorSummary ? (
+                                    <p className="mt-1 text-xs font-normal text-text-secondary">
+                                      Flavor selection: {flavorSummary}
+                                    </p>
+                                  ) : null}
+                                </>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-mono">

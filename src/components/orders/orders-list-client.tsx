@@ -15,6 +15,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/date";
+import {
+  getFlavorSelectionSummaryFromNotes,
+  getVariantLabelFromNotes,
+} from "@/lib/utils/order-item-display";
 
 type OrderListItem = {
   id: number;
@@ -23,6 +27,7 @@ type OrderListItem = {
   status: string | null;
   createdAt: Date | null;
   items: Array<{
+    id: number;
     recipeId: number;
     quantity: number;
     notes?: string | null;
@@ -104,12 +109,6 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
       setSelectedOrderIds([]);
       router.refresh();
     });
-  }
-
-  function getItemSelectionSummary(notes: string | null | undefined) {
-    const trimmed = notes?.trim();
-    if (!trimmed) return "";
-    return trimmed.replace(/^(flavors?|flavor split)\s*:\s*/i, "").trim();
   }
 
   return (
@@ -202,15 +201,28 @@ export function OrdersListClient({ orders }: { orders: OrderListItem[] }) {
                       {order.items.map((item) => {
                         const recipeName =
                           item.recipe?.name ?? `Recipe #${item.recipeId}`;
-                        const selectionSummary = getItemSelectionSummary(item.notes);
+                        const variantLabel = getVariantLabelFromNotes(item.notes);
+                        const flavorSummary =
+                          getFlavorSelectionSummaryFromNotes(item.notes);
                         return (
-                          <div key={`${order.id}-${item.recipeId}-${recipeName}`}>
-                            <p>{`${recipeName} x${item.quantity}`}</p>
-                            {selectionSummary ? (
-                              <p className="text-xs text-text-secondary">
-                                Flavor selection: {selectionSummary}
-                              </p>
-                            ) : null}
+                          <div key={`${order.id}-${item.id}`}>
+                            {variantLabel ? (
+                              <>
+                                <p>{`${item.quantity} × ${variantLabel}`}</p>
+                                <p className="text-xs text-text-secondary">
+                                  {recipeName}
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p>{`${recipeName} x${item.quantity}`}</p>
+                                {flavorSummary ? (
+                                  <p className="text-xs text-text-secondary">
+                                    Flavor selection: {flavorSummary}
+                                  </p>
+                                ) : null}
+                              </>
+                            )}
                           </div>
                         );
                       })}

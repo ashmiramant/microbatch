@@ -5,6 +5,7 @@ import { orders, orderItems, recipes } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { sendOrderConfirmationEmail } from "@/lib/services/order-confirmation-email";
+import { getVariantLabelFromNotes } from "@/lib/utils/order-item-display";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -351,10 +352,14 @@ async function sendConfirmationEmailForOrder(orderId: number) {
       to: customerEmail,
       customerName: customerName || "there",
       orderName: order.name,
-      items: order.items.map((item) => ({
-        name: item.recipe?.name ?? `Item #${item.recipeId}`,
-        quantity: item.quantity,
-      })),
+      items: order.items.map((item) => {
+        const base = item.recipe?.name ?? `Item #${item.recipeId}`;
+        const variant = getVariantLabelFromNotes(item.notes);
+        return {
+          name: variant ? `${base} — ${variant}` : base,
+          quantity: item.quantity,
+        };
+      }),
       notes: customerNotes || null,
     });
 

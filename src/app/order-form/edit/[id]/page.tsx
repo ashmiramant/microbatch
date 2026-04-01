@@ -18,6 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  normalizeOrderVariantsFromDb,
+  variantLineKey,
+  type OrderVariantDef,
+} from "@/lib/utils/order-variants";
 
 type Recipe = {
   id: number;
@@ -28,6 +33,7 @@ type Recipe = {
   price: string | null;
   minQuantityForRootedOrder: number | null;
   orderFlavorOptions: string[] | null;
+  orderVariants: OrderVariantDef[] | null;
 };
 
 export default function EditOrderFromLinkPage({
@@ -50,6 +56,9 @@ export default function EditOrderFromLinkPage({
   const [channel, setChannel] = useState<"main" | "rooted_community">("main");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [variantQuantities, setVariantQuantities] = useState<
+    Record<string, number>
+  >({});
   const [flavorSelections, setFlavorSelections] = useState<
     Record<number, Record<string, number>>
   >({});
@@ -76,59 +85,78 @@ export default function EditOrderFromLinkPage({
       setChannel(orderChannel);
       const recipesResult = await getAvailableRecipesByChannel(orderChannel);
 
-      if (recipesResult.success && recipesResult.data) {
-        setRecipes(
-          recipesResult.data.map((r) => ({
-            id: r.id,
-            name: r.name,
-            category: r.category,
-            imageUrl: r.imageUrl,
-            description: r.description,
-            price: r.price,
-            minQuantityForRootedOrder: r.minQuantityForRootedOrder ?? null,
-            orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
-              ? r.orderFlavorOptions
-                  .map((option) => String(option).trim())
-                  .filter(Boolean)
-              : null,
-          }))
-        );
-      }
+      const recipeList =
+        recipesResult.success && recipesResult.data
+          ? recipesResult.data.map((r) => ({
+              id: r.id,
+              name: r.name,
+              category: r.category,
+              imageUrl: r.imageUrl,
+              description: r.description,
+              price: r.price,
+              minQuantityForRootedOrder: r.minQuantityForRootedOrder ?? null,
+              orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
+                ? r.orderFlavorOptions
+                    .map((option) => String(option).trim())
+                    .filter(Boolean)
+                : null,
+              orderVariants: normalizeOrderVariantsFromDb(r.orderVariants),
+            }))
+          : [];
+      setRecipes(recipeList);
 
       setCustomerName(orderResult.data.customerName ?? "");
       setCustomerEmail(orderResult.data.customerEmail ?? "");
       setCustomerPhone(orderResult.data.customerPhone ?? "");
       setNotes(orderResult.data.customerNotes ?? "");
-      const nextQuantities = orderResult.data.items.reduce<Record<number, number>>(
-        (acc, item) => {
-          if (item.quantity > 0) acc[item.recipeId] = item.quantity;
-          return acc;
-        },
-        {}
-      );
-      setQuantities(nextQuantities);
 
-      const nextFlavorSelections = orderResult.data.items.reduce<
-        Record<number, Record<string, number>>
-      >((acc, item) => {
-        const note = item.notes ?? "";
-        if (!/^(flavors?|flavor split)\s*:/i.test(note.trim())) return acc;
-        const summary = note
-          .trim()
-          .replace(/^(flavors?|flavor split)\s*:\s*/i, "")
-          .trim();
-        if (!summary) return acc;
-        const parsed: Record<string, number> = {};
-        for (const segment of summary.split(",")) {
-          const match = segment.trim().match(/^(.*?)\s+x(\d+)$/i);
-          if (!match) continue;
-          parsed[match[1].trim()] = parseInt(match[2], 10);
+      const recipeById = new Map(recipeList.map((r) => [r.id, r]));
+      const nextQuantities: Record<number, number> = {};
+      const nextVariantQuantities: Record<string, number> = {};
+      const nextFlavorSelections: Record<number, Record<string, number>> = {};
+
+      for (const item of orderResult.data.items) {
+        if (item.quantity <= 0) continue;
+        const recipe = recipeById.get(item.recipeId);
+        const note = (item.notes ?? "").trim();
+        const variantMatch = note.match(/^Variant:\s*(.+)$/i);
+
+        if (variantMatch && recipe?.orderVariants?.length) {
+          const label = variantMatch[1].trim();
+          const v = recipe.orderVariants.find((x) => x.label === label);
+          if (v) {
+            const k = variantLineKey(item.recipeId, v.id);
+            nextVariantQuantities[k] =
+              (nextVariantQuantities[k] ?? 0) + item.quantity;
+          }
+          continue;
         }
-        if (Object.keys(parsed).length > 0) {
-          acc[item.recipeId] = parsed;
+
+        if (/^(flavors?|flavor split)\s*:/i.test(note)) {
+          const summary = note
+            .replace(/^(flavors?|flavor split)\s*:\s*/i, "")
+            .trim();
+          if (!summary) continue;
+          const parsed: Record<string, number> = {};
+          for (const segment of summary.split(",")) {
+            const match = segment.trim().match(/^(.*?)\s+x(\d+)$/i);
+            if (!match) continue;
+            parsed[match[1].trim()] = parseInt(match[2], 10);
+          }
+          if (Object.keys(parsed).length > 0) {
+            nextFlavorSelections[item.recipeId] = parsed;
+            const total = Object.values(parsed).reduce((a, b) => a + b, 0);
+            if (total > 0) nextQuantities[item.recipeId] = total;
+          }
+          continue;
         }
-        return acc;
-      }, {});
+
+        nextQuantities[item.recipeId] =
+          (nextQuantities[item.recipeId] ?? 0) + item.quantity;
+      }
+
+      setQuantities(nextQuantities);
+      setVariantQuantities(nextVariantQuantities);
       setFlavorSelections(nextFlavorSelections);
       setLoading(false);
     }
@@ -136,32 +164,71 @@ export default function EditOrderFromLinkPage({
     loadData();
   }, [orderId, token]);
 
-  const selectedItems = useMemo(
-    () =>
-      Object.entries(quantities)
-        .filter(([, qty]) => qty > 0)
-        .map(([recipeId, qty]) => {
-          const recipe = recipes.find((r) => r.id === Number(recipeId));
-          const flavorOptions = recipe?.orderFlavorOptions ?? [];
-          const flavorCounts = flavorSelections[Number(recipeId)] ?? {};
-          const flavorSummary = flavorOptions
-            .map((option) => ({ option, count: flavorCounts[option] ?? 0 }))
-            .filter((entry) => entry.count > 0)
-            .map((entry) => `${entry.option} x${entry.count}`)
-            .join(", ");
-          return {
-            recipeId: Number(recipeId),
-            recipeName: recipe?.name ?? "Unknown",
+  type SelectedLine = {
+    recipeId: number;
+    recipeName: string;
+    quantity: number;
+    price: number;
+    flavorOptions: string[];
+    flavorCounts: Record<string, number>;
+    flavorSummary: string;
+    notes: string | null;
+    unitPrice: string | null;
+    lineKey: string;
+    variantLabel: string | null;
+  };
+
+  const selectedItems = useMemo((): SelectedLine[] => {
+    const lines: SelectedLine[] = [];
+    for (const recipe of recipes) {
+      const variants = recipe.orderVariants;
+      if (variants && variants.length > 0) {
+        for (const v of variants) {
+          const qty = variantQuantities[variantLineKey(recipe.id, v.id)] ?? 0;
+          if (qty <= 0) continue;
+          const unit = parseFloat(v.price);
+          lines.push({
+            recipeId: recipe.id,
+            recipeName: recipe.name,
             quantity: qty,
-            price: recipe?.price ? parseFloat(recipe.price) : 0,
-            flavorOptions,
-            flavorCounts,
-            flavorSummary,
-            notes: flavorSummary ? `Flavors: ${flavorSummary}` : null,
-          };
-        }),
-    [quantities, recipes, flavorSelections]
-  );
+            price: Number.isFinite(unit) ? unit : 0,
+            flavorOptions: [],
+            flavorCounts: {},
+            flavorSummary: "",
+            notes: `Variant: ${v.label}`,
+            unitPrice: v.price,
+            lineKey: `r${recipe.id}-v-${v.id}`,
+            variantLabel: v.label,
+          });
+        }
+        continue;
+      }
+
+      const qty = quantities[recipe.id] ?? 0;
+      if (qty <= 0) continue;
+      const flavorOptions = recipe.orderFlavorOptions ?? [];
+      const flavorCounts = flavorSelections[recipe.id] ?? {};
+      const flavorSummary = flavorOptions
+        .map((option) => ({ option, count: flavorCounts[option] ?? 0 }))
+        .filter((entry) => entry.count > 0)
+        .map((entry) => `${entry.option} x${entry.count}`)
+        .join(", ");
+      lines.push({
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        quantity: qty,
+        price: recipe.price ? parseFloat(recipe.price) : 0,
+        flavorOptions,
+        flavorCounts,
+        flavorSummary,
+        notes: flavorSummary ? `Flavors: ${flavorSummary}` : null,
+        unitPrice: recipe.price,
+        lineKey: `r${recipe.id}`,
+        variantLabel: null,
+      });
+    }
+    return lines;
+  }, [recipes, quantities, variantQuantities, flavorSelections]);
 
   const totalPrice = selectedItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -238,6 +305,24 @@ export default function EditOrderFromLinkPage({
     });
   }
 
+  function handleVariantQuantityChange(
+    recipeId: number,
+    variantId: string,
+    quantity: string
+  ) {
+    const qty = parseInt(quantity, 10);
+    const key = variantLineKey(recipeId, variantId);
+    setVariantQuantities((prev) => {
+      const next = { ...prev };
+      if (isNaN(qty) || qty <= 0) {
+        delete next[key];
+      } else {
+        next[key] = qty;
+      }
+      return next;
+    });
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaved(false);
@@ -249,7 +334,7 @@ export default function EditOrderFromLinkPage({
     }
 
     for (const item of selectedItems) {
-      if (item.flavorOptions.length === 0) continue;
+      if (item.variantLabel || item.flavorOptions.length === 0) continue;
       const totalFlavorCount = item.flavorOptions.reduce(
         (sum, option) => sum + (item.flavorCounts[option] ?? 0),
         0
@@ -272,6 +357,7 @@ export default function EditOrderFromLinkPage({
         recipeId: item.recipeId,
         quantity: item.quantity,
         notes: item.notes,
+        unitPrice: item.unitPrice,
       })),
     });
     setSaving(false);
@@ -338,54 +424,208 @@ export default function EditOrderFromLinkPage({
                       className="mb-3 h-40 w-full rounded-lg object-cover"
                     />
                   ) : null}
-                  <div className="mb-3 flex items-baseline justify-between">
+                  <div className="mb-3 flex items-baseline justify-between gap-2">
                     <h3 className="font-serif text-lg font-semibold text-text-primary">
                       {recipe.name}
                     </h3>
-                    {recipe.price && parseFloat(recipe.price) > 0 ? (
-                      <span className="font-semibold text-accent">
-                        ${parseFloat(recipe.price).toFixed(2)}
-                        {channel === "rooted_community" &&
-                          recipe.minQuantityForRootedOrder != null &&
-                          recipe.minQuantityForRootedOrder > 0 && (
-                            <span className="ml-1 text-xs font-normal text-text-secondary">
-                              (min {recipe.minQuantityForRootedOrder})
-                            </span>
-                          )}
-                      </span>
-                    ) : null}
+                    {(() => {
+                      const variants = recipe.orderVariants;
+                      if (variants && variants.length > 0) {
+                        const prices = variants
+                          .map((v) => parseFloat(v.price))
+                          .filter((n) => Number.isFinite(n) && n > 0);
+                        if (prices.length === 0) return null;
+                        const minP = Math.min(...prices);
+                        return (
+                          <span className="shrink-0 text-right font-semibold text-accent">
+                            from ${minP.toFixed(2)}
+                            {channel === "rooted_community" &&
+                              recipe.minQuantityForRootedOrder != null &&
+                              recipe.minQuantityForRootedOrder > 0 && (
+                                <span className="ml-1 text-xs font-normal text-text-secondary">
+                                  (min {recipe.minQuantityForRootedOrder} ea.)
+                                </span>
+                              )}
+                          </span>
+                        );
+                      }
+                      if (recipe.price && parseFloat(recipe.price) > 0) {
+                        return (
+                          <span className="shrink-0 font-semibold text-accent">
+                            ${parseFloat(recipe.price).toFixed(2)}
+                            {channel === "rooted_community" &&
+                              recipe.minQuantityForRootedOrder != null &&
+                              recipe.minQuantityForRootedOrder > 0 && (
+                                <span className="ml-1 text-xs font-normal text-text-secondary">
+                                  (min {recipe.minQuantityForRootedOrder})
+                                </span>
+                              )}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   {recipe.description ? (
                     <p className="mb-3 text-sm leading-relaxed text-text-secondary">
                       {recipe.description}
                     </p>
                   ) : null}
-                          {(recipe.orderFlavorOptions?.length ?? 0) > 0 &&
-                          (quantities[recipe.id] ?? 0) > 0 ? (
-                            <div className="mb-3 space-y-2 rounded-lg border border-border bg-background p-3">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                                Flavor Split
-                              </p>
-                              {recipe.orderFlavorOptions!.map((flavor) => (
-                                (() => {
-                                  const selectedQty = quantities[recipe.id] ?? 0;
-                                  const currentFlavorQty =
-                                    flavorSelections[recipe.id]?.[flavor] ?? 0;
-                                  const assignedOtherFlavors =
-                                    recipe.orderFlavorOptions!.reduce(
-                                      (sum, option) =>
-                                        option === flavor
-                                          ? sum
-                                          : sum +
-                                            (flavorSelections[recipe.id]?.[option] ?? 0),
-                                      0
+                  {recipe.orderVariants && recipe.orderVariants.length > 0 ? (
+                    <div className="mt-4 space-y-4 border-t border-border pt-4">
+                      {recipe.orderVariants.map((v, vi) => {
+                        const vKey = variantLineKey(recipe.id, v.id);
+                        const vPrice = parseFloat(v.price);
+                        const minQty =
+                          channel === "rooted_community" &&
+                          recipe.minQuantityForRootedOrder != null &&
+                          recipe.minQuantityForRootedOrder > 0
+                            ? recipe.minQuantityForRootedOrder
+                            : 0;
+                        const maxQty = minQty > 0 ? 24 : 10;
+                        const options =
+                          minQty > 0
+                            ? [
+                                0,
+                                ...Array.from(
+                                  { length: maxQty - minQty + 1 },
+                                  (_, i) => minQty + i
+                                ),
+                              ]
+                            : Array.from({ length: maxQty + 1 }, (_, i) => i);
+                        return (
+                          <div
+                            key={v.id}
+                            className={
+                              vi > 0
+                                ? "space-y-2 border-t border-border/60 pt-4"
+                                : "space-y-2"
+                            }
+                          >
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-[0.9rem] font-semibold text-text-primary">
+                                {v.label}
+                              </span>
+                              <span className="shrink-0 text-[0.9rem] font-semibold text-accent">
+                                {Number.isFinite(vPrice)
+                                  ? `$${vPrice.toFixed(2)}`
+                                  : "—"}
+                                <span className="sr-only"> per unit</span>
+                              </span>
+                            </div>
+                            <Label
+                              htmlFor={`edit-variant-qty-${recipe.id}-${v.id}`}
+                              className="text-sm text-text-secondary"
+                            >
+                              Quantity
+                            </Label>
+                            <Select
+                              value={(variantQuantities[vKey] ?? 0).toString()}
+                              onValueChange={(value) =>
+                                handleVariantQuantityChange(
+                                  recipe.id,
+                                  v.id,
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger
+                                id={`edit-variant-qty-${recipe.id}-${v.id}`}
+                                className="mt-1.5"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {options.map((n) => (
+                                  <SelectItem key={n} value={String(n)}>
+                                    {n}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label
+                          htmlFor={`edit-quantity-${recipe.id}`}
+                          className="text-sm text-text-secondary"
+                        >
+                          Quantity
+                        </Label>
+                        <Select
+                          value={quantities[recipe.id]?.toString() || "0"}
+                          onValueChange={(value) =>
+                            handleQuantityChange(recipe.id, value)
+                          }
+                        >
+                          <SelectTrigger
+                            id={`edit-quantity-${recipe.id}`}
+                            className="mt-1.5"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(() => {
+                              const minQty =
+                                channel === "rooted_community" &&
+                                recipe.minQuantityForRootedOrder != null &&
+                                recipe.minQuantityForRootedOrder > 0
+                                  ? recipe.minQuantityForRootedOrder
+                                  : 0;
+                              const maxQty = minQty > 0 ? 24 : 10;
+                              const options =
+                                minQty > 0
+                                  ? [
+                                      0,
+                                      ...Array.from(
+                                        { length: maxQty - minQty + 1 },
+                                        (_, i) => minQty + i
+                                      ),
+                                    ]
+                                  : Array.from(
+                                      { length: maxQty + 1 },
+                                      (_, i) => i
                                     );
-                                  const maxFlavorQty = Math.max(
-                                    0,
-                                    selectedQty - assignedOtherFlavors
-                                  );
+                              return options.map((n) => (
+                                <SelectItem key={n} value={String(n)}>
+                                  {n}
+                                </SelectItem>
+                              ));
+                            })()}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {(recipe.orderFlavorOptions?.length ?? 0) > 0 &&
+                      (quantities[recipe.id] ?? 0) > 0 ? (
+                        <div className="mt-3 space-y-2 rounded-lg border border-border bg-background p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                            Flavor Split
+                          </p>
+                          {recipe.orderFlavorOptions!.map((flavor) => (
+                            (() => {
+                              const selectedQty = quantities[recipe.id] ?? 0;
+                              const currentFlavorQty =
+                                flavorSelections[recipe.id]?.[flavor] ?? 0;
+                              const assignedOtherFlavors =
+                                recipe.orderFlavorOptions!.reduce(
+                                  (sum, option) =>
+                                    option === flavor
+                                      ? sum
+                                      : sum +
+                                        (flavorSelections[recipe.id]?.[option] ??
+                                          0),
+                                  0
+                                );
+                              const maxFlavorQty = Math.max(
+                                0,
+                                selectedQty - assignedOtherFlavors
+                              );
 
-                                  return (
+                              return (
                                 <div
                                   key={`${recipe.id}-${flavor}`}
                                   className="flex items-center justify-between gap-2"
@@ -419,59 +659,33 @@ export default function EditOrderFromLinkPage({
                                         { length: maxFlavorQty + 1 },
                                         (_, i) => i
                                       ).map((value) => (
-                                        <SelectItem key={value} value={String(value)}>
+                                        <SelectItem
+                                          key={value}
+                                          value={String(value)}
+                                        >
                                           {value}
                                         </SelectItem>
                                       ))}
                                     </SelectContent>
                                   </Select>
                                 </div>
-                                  );
-                                })()
-                              ))}
-                              <p className="text-xs text-text-secondary">
-                                Assigned:{" "}
-                                {recipe.orderFlavorOptions!.reduce(
-                                  (sum, flavor) =>
-                                    sum +
-                                    (flavorSelections[recipe.id]?.[flavor] ?? 0),
-                                  0
-                                )}{" "}
-                                / {quantities[recipe.id]}
-                              </p>
-                            </div>
-                          ) : null}
-                  <Label htmlFor={`edit-quantity-${recipe.id}`} className="text-sm text-text-secondary">
-                    Quantity
-                  </Label>
-                  <Select
-                    value={quantities[recipe.id]?.toString() || "0"}
-                    onValueChange={(value) => handleQuantityChange(recipe.id, value)}
-                  >
-                    <SelectTrigger id={`edit-quantity-${recipe.id}`} className="mt-1.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(() => {
-                        const minQty =
-                          channel === "rooted_community" &&
-                          recipe.minQuantityForRootedOrder != null &&
-                          recipe.minQuantityForRootedOrder > 0
-                            ? recipe.minQuantityForRootedOrder
-                            : 0;
-                        const maxQty = minQty > 0 ? 24 : 10;
-                        const options =
-                          minQty > 0
-                            ? [0, ...Array.from({ length: maxQty - minQty + 1 }, (_, i) => minQty + i)]
-                            : Array.from({ length: maxQty + 1 }, (_, i) => i);
-                        return options.map((n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            {n}
-                          </SelectItem>
-                        ));
-                      })()}
-                    </SelectContent>
-                  </Select>
+                              );
+                            })()
+                          ))}
+                          <p className="text-xs text-text-secondary">
+                            Assigned:{" "}
+                            {recipe.orderFlavorOptions!.reduce(
+                              (sum, flavor) =>
+                                sum +
+                                (flavorSelections[recipe.id]?.[flavor] ?? 0),
+                              0
+                            )}{" "}
+                            / {quantities[recipe.id]}
+                          </p>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
                 </Card>
               ))}
             </div>
@@ -532,18 +746,34 @@ export default function EditOrderFromLinkPage({
                 ) : (
                   <div className="space-y-2">
                     {selectedItems.map((item) => (
-                      <div key={item.recipeId} className="flex justify-between text-sm">
-                        <div className="text-text-secondary">
-                          <span>
-                            {item.recipeName} × {item.quantity}
-                          </span>
-                          {item.flavorSummary ? (
-                            <p className="text-xs text-text-secondary">
-                              {item.flavorSummary}
-                            </p>
-                          ) : null}
+                      <div
+                        key={item.lineKey}
+                        className="flex justify-between gap-2 text-sm"
+                      >
+                        <div className="min-w-0 text-text-secondary">
+                          {item.variantLabel ? (
+                            <>
+                              <span className="font-medium text-text-primary">
+                                {item.quantity} × {item.variantLabel}
+                              </span>
+                              <p className="text-xs text-text-secondary">
+                                {item.recipeName}
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <span>
+                                {item.recipeName} × {item.quantity}
+                              </span>
+                              {item.flavorSummary ? (
+                                <p className="text-xs text-text-secondary">
+                                  {item.flavorSummary}
+                                </p>
+                              ) : null}
+                            </>
+                          )}
                         </div>
-                        <span className="font-medium text-text-primary">
+                        <span className="shrink-0 font-medium text-text-primary">
                           ${(item.price * item.quantity).toFixed(2)}
                         </span>
                       </div>

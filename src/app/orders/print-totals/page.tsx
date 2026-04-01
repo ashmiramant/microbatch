@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getOrders } from "@/lib/actions/orders";
 import { requireAuth } from "@/lib/auth";
 import { PrintControls } from "../print/print-controls";
+import { getVariantLabelFromNotes } from "@/lib/utils/order-item-display";
 
 type PrintTotalsPageProps = {
   searchParams: Promise<{
@@ -88,10 +89,19 @@ export default async function OrderTotalsPrintPage({
         }
 
         acc[recipeName].quantity += item.quantity;
-        const flavorSelections = parseFlavorSelections(item.notes, item.quantity);
-        for (const [flavor, qty] of Object.entries(flavorSelections)) {
-          acc[recipeName].flavorTotals[flavor] =
-            (acc[recipeName].flavorTotals[flavor] ?? 0) + qty;
+        const variantLabel = getVariantLabelFromNotes(item.notes);
+        if (variantLabel) {
+          acc[recipeName].flavorTotals[variantLabel] =
+            (acc[recipeName].flavorTotals[variantLabel] ?? 0) + item.quantity;
+        } else {
+          const flavorSelections = parseFlavorSelections(
+            item.notes,
+            item.quantity
+          );
+          for (const [flavor, qty] of Object.entries(flavorSelections)) {
+            acc[recipeName].flavorTotals[flavor] =
+              (acc[recipeName].flavorTotals[flavor] ?? 0) + qty;
+          }
         }
       }
       return acc;

@@ -57,6 +57,7 @@ type CreateRecipeInput = {
   priceForRootedOrder?: string | null;
   minQuantityForRootedOrder?: number | null;
   orderFlavorOptions?: string[] | null;
+  orderVariants?: Array<{ id: string; label: string; price: string }> | null;
   defaultPanId?: number | null;
   notes?: string | null;
   rawLdJson?: unknown;
@@ -114,6 +115,7 @@ export async function createRecipe(data: CreateRecipeInput) {
           priceForRootedOrder: data.priceForRootedOrder,
           minQuantityForRootedOrder: data.minQuantityForRootedOrder,
           orderFlavorOptions: data.orderFlavorOptions,
+          orderVariants: data.orderVariants,
           defaultPanId: data.defaultPanId,
           notes: data.notes,
           rawLdJson: data.rawLdJson,
@@ -203,6 +205,9 @@ export async function updateRecipe(id: number, data: UpdateRecipeInput) {
       }
       if (recipeFields.orderFlavorOptions !== undefined) {
         updateValues.orderFlavorOptions = recipeFields.orderFlavorOptions;
+      }
+      if (recipeFields.orderVariants !== undefined) {
+        updateValues.orderVariants = recipeFields.orderVariants;
       }
       if (recipeFields.defaultPanId !== undefined) updateValues.defaultPanId = recipeFields.defaultPanId;
       if (recipeFields.notes !== undefined) updateValues.notes = recipeFields.notes;
@@ -339,6 +344,13 @@ export async function duplicateRecipe(id: number) {
       orderFlavorOptions: Array.isArray(r.orderFlavorOptions)
         ? r.orderFlavorOptions.map((o) => String(o))
         : null,
+      orderVariants: Array.isArray(r.orderVariants)
+        ? r.orderVariants.map((v: { id?: string; label?: string; price?: string }) => ({
+            id: String(v.id ?? "").trim(),
+            label: String(v.label ?? "").trim(),
+            price: String(v.price ?? "").trim(),
+          })).filter((v) => v.id && v.label && v.price)
+        : null,
       defaultPanId: r.defaultPanId,
       notes: r.notes,
       rawLdJson: r.rawLdJson,
@@ -452,6 +464,10 @@ async function ensureRecipeOrderFormColumns() {
   await db.execute(sql`
     ALTER TABLE recipes
     ADD COLUMN IF NOT EXISTS min_quantity_for_rooted_order integer
+  `);
+  await db.execute(sql`
+    ALTER TABLE recipes
+    ADD COLUMN IF NOT EXISTS order_variants jsonb
   `);
   await db.execute(sql`
     UPDATE recipes

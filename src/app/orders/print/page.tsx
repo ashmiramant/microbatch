@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { getOrders } from "@/lib/actions/orders";
 import { requireAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils/date";
+import {
+  getFlavorSelectionSummaryFromNotes,
+  getVariantLabelFromNotes,
+} from "@/lib/utils/order-item-display";
 import { PrintControls } from "./print-controls";
 
 type PrintPageProps = {
@@ -15,12 +19,6 @@ function parsePrice(value: string | null | undefined) {
   if (!value) return 0;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function getItemSelectionSummary(notes: string | null | undefined) {
-  const trimmed = notes?.trim();
-  if (!trimmed) return "";
-  return trimmed.replace(/^(flavors?|flavor split)\s*:\s*/i, "").trim();
 }
 
 export default async function OrdersPrintPage({ searchParams }: PrintPageProps) {
@@ -85,16 +83,33 @@ export default async function OrdersPrintPage({ searchParams }: PrintPageProps) 
                   const recipeName = item.recipe?.name ?? `Recipe #${item.recipeId}`;
                   const unitPrice = parsePrice(item.unitPrice ?? item.recipe?.price ?? null);
                   const lineTotal = unitPrice * item.quantity;
-                  const selectionSummary = getItemSelectionSummary(item.notes);
+                  const variantLabel = getVariantLabelFromNotes(item.notes);
+                  const flavorSummary =
+                    getFlavorSelectionSummaryFromNotes(item.notes);
                   return (
                     <li key={item.id} className="flex justify-between gap-2">
                       <span className="pr-2">
-                        <span>x{item.quantity} {recipeName}</span>
-                        {selectionSummary ? (
-                          <span className="block text-sm font-normal text-text-secondary">
-                            {selectionSummary}
-                          </span>
-                        ) : null}
+                        {variantLabel ? (
+                          <>
+                            <span>
+                              {item.quantity} × {variantLabel}
+                            </span>
+                            <span className="block text-sm font-normal text-text-secondary">
+                              {recipeName}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span>
+                              x{item.quantity} {recipeName}
+                            </span>
+                            {flavorSummary ? (
+                              <span className="block text-sm font-normal text-text-secondary">
+                                {flavorSummary}
+                              </span>
+                            ) : null}
+                          </>
+                        )}
                       </span>
                       <span className="font-mono">${lineTotal.toFixed(2)}</span>
                     </li>

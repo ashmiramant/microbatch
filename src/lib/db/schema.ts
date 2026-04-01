@@ -37,6 +37,7 @@ export const recipes = pgTable("recipes", {
   priceForRootedOrder: numeric("price_for_rooted_order", { precision: 10, scale: 2 }),
   minQuantityForRootedOrder: integer("min_quantity_for_rooted_order"),
   orderFlavorOptions: jsonb("order_flavor_options"),
+  orderVariants: jsonb("order_variants"),
   defaultPanId: integer("default_pan_id").references(() => pans.id),
   notes: text("notes"),
   rawLdJson: jsonb("raw_ld_json"),
