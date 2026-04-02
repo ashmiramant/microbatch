@@ -5,6 +5,7 @@ import { orders, orderItems, recipes } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { sendOrderConfirmationEmail } from "@/lib/services/order-confirmation-email";
+import { sendNewOrderNotificationEmail } from "@/lib/services/order-notification-email";
 import { getVariantLabelFromNotes } from "@/lib/utils/order-item-display";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -165,6 +166,13 @@ export async function createOrder(data: CreateOrderInput) {
     });
 
     revalidatePath("/orders");
+
+    try {
+      await sendNewOrderNotificationEmail(result.id);
+    } catch (notifyErr) {
+      console.error("Failed to send new-order notification email:", notifyErr);
+    }
+
     return { success: true, data: result };
   } catch (error) {
     console.error("Failed to create order:", error);
