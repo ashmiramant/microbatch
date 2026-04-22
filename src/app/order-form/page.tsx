@@ -268,12 +268,10 @@ export function PublicOrderForm({
   const reminders =
     channel === "rooted_community"
       ? [
-          "After submitting this form, you'll hear from me within 24 hours to confirm your order!",
           "Pickup is 4:30pm - 5:30 ever other Tuesday!",
           "Payment is due at pickup cash or Venmo (@AshleyRidley)",
         ]
       : [
-          "After submitting this form, you'll hear from me within 24 hours to confirm your order!",
           "Pickup is anytime after 9am on Saturdays! Please be in touch if you'll be picking up after dark.",
           "Payment is due at pickup cash or Venmo (@AshleyRidley)",
           "1006 Kingsway Dr. Apex",
@@ -351,10 +349,10 @@ export function PublicOrderForm({
           </div>
         </div>
         <h1 className="mb-4 font-serif text-3xl font-semibold text-text-primary">
-          Order Received!
+          Order Confirmed
         </h1>
         <p className="mb-8 text-lg text-text-secondary">
-          Thank you for your order! You&apos;ll hear from me within 24 hours to confirm.
+          Thank you for your order!
         </p>
         <div className="mb-8 rounded-lg border border-border bg-surface p-4 text-left">
           <p className="text-base font-semibold text-text-primary">
